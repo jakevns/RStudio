@@ -1,0 +1,92 @@
+/* ============================================
+   Earthy, Modern, Calm Theme
+   ============================================ */
+
+/* --- Base --- */
+body {
+  font-family: 'Georgia', serif;
+  background-color: #f8f5f0;
+  color: #5a4e3a;
+  line-height: 1.8;
+}
+
+h1, h2, h3, h4 {
+  font-family: 'Helvetica Neue', sans-serif;
+  color: #4a6741;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+hr {
+  border: none;
+  border-top: 1px solid #c9bfaf;
+  margin: 2em 0;
+}
+
+/* --- TOC --- */
+#TOC {
+  background-color: #eee9e0;
+  border-radius: 8px;
+  padding: 12px;
+  border-left: 4px solid #4a6741;
+}
+
+/* --- Blockquotes --- */
+blockquote {
+  border-left: 4px solid #b5a48a;
+  background-color: #f0ebe3;
+  padding: 10px 16px;
+  border-radius: 4px;
+  color: #5a4e3a;
+  font-style: italic;
+}
+
+/* --- Callout Blocks --- */
+.callout {
+  border-radius: 8px;
+}
+
+/* --- Inline Code (everywhere except code chunks) --- */
+p code, li code, blockquote code,
+.callout code, h1 code, h2 code, h3 code, h4 code {
+  background-color: #ddd8ce !important;
+  color: #4a6741 !important;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 0.88em;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* --- Code Chunks --- */
+div.sourceCode, pre.sourceCode {
+  background-color: #3d2e1e !important;
+  border-radius: 8px !important;
+  border-left: 4px solid #b5a48a !important;
+}
+
+div.sourceCode code, pre.sourceCode code {
+  background-color: transparent !important;
+  color: #d4cfc8 !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  font-size: 1em !important;
+}
+
+/* --- Output Blocks --- */
+pre:not(.sourceCode) {
+  background-color: #eae5dc !important;
+  color: #3a3028 !important;
+  border-radius: 8px;
+  border-left: 4px solid #7a9e6e;
+}
+
+/* --- Syntax Highlighting --- */
+code span.st { color: #7dd4c0 !important; }  /* strings   */
+code span.fu { color: #a8d8a8 !important; }  /* functions */
+code span.dv { color: #a8c89a !important; }  /* numbers   */
+code span.op { color: #f5c842 !important; }  /* operators */
+code span.ot { color: #f0c040 !important; }  /* other     */
+code span.sc { color: #f0c040 !important; }  /* specials  */
+code span.kw { color: #f0c040 !important; }  /* keywords  */
