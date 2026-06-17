@@ -1,0 +1,273 @@
+---
+title: "W02-Fundamentals of Machine Learning-Reflection"
+author: "Jake Evans"
+date: '`r format(Sys.time())`'
+format:
+  html:
+    theme: sandstone
+    toc: true
+    toc-depth: 4
+    toc-expand: true
+    number-sections: true
+    code-link: true
+    code-fold: true
+    code-tools: true
+    code-overflow: wrap
+    code-summary: "Show the R code"
+    link-external-newwindow: true
+    embed-resources: true
+editor: visual
+execute:
+  freeze: auto
+---
+
+This document responds to each of the W02 reflection prompts in order. The original prompt text appears as a blockquote immediately before my response to it.
+
+# Prompt 1: tidymodels for Applied Machine Learning {#sec-prompt1}
+
+> 1.  In Step 1, the textbook authors made a case for a new approach in machine learning with the [tidymodels package](https://www.tidymodels.org/packages/). Summarize the video presentation.
+>
+>     1.  What did you learn about tidymodels? How is it different from others, such as Caret? What are the strengths and weaknesses of tidymodels?
+>     2.  What does the workflow look like when you use tidymodels for machine learning?
+>     3.  What is MLOps in the Machine Learning workflow? How does the {[vetiver](https://vetiver.posit.co/get-started/)} package do for MLOps?
+
+The presentation by Julia Silge and Max Kuhn[^talk] focused on a modern approach to machine learning in R using the `tidymodels` ecosystem. One thing that stood out to me was that the talk was less about machine learning algorithms themselves and more about the overall process of building reliable models. The presenters organized the talk around three goals for tidymodels: making the modeling process more ergonomic, more effective, and safer. Using a Spotify dataset as an example, the presenters showed that a large portion of machine learning work happens before the model is ever trained. Tasks such as cleaning data, creating new features, and preparing variables often take more time than fitting the model itself. This is where tidymodels helps by organizing preprocessing, modeling, and evaluation into a consistent workflow. I also found it interesting that Max Kuhn explained how `tidymodels` grew out of lessons learned from developing `caret`. Rather than continuing to expand a package that was not designed for modern machine learning workflows, the team built a new ecosystem that is easier to extend and maintain. The presentation concluded with an introduction to `vetiver`, which helps move trained models into production, and a reminder that even a model with excellent training results can fail if the workflow is not set up correctly.
+
+What I learned about `tidymodels` is that it is not a single package but a collection of packages that work together using a common design philosophy. Instead of trying to do everything through one large function, each package focuses on a specific part of the machine learning process. This makes the workflow more organized and easier to understand once the terminology becomes familiar.
+
+|   | caret | tidymodels |
+|------------------------|------------------------|------------------------|
+| Built | 2005, before R had namespaces | Built using modern tidyverse design principles |
+| Interface | One `train()` function with many arguments | Several focused packages, each with a specific role |
+| Extending it | More difficult to expand | Designed to support community extensions and new tools |
+
+: caret vs. tidymodels {#tbl-caret}
+
+The biggest strength of `tidymodels` is consistency. Once you learn the workflow, you can switch between different model types without learning completely new syntax. The recipe and workflow structure also helps reduce mistakes by keeping preprocessing steps tied directly to the model training process. The main weakness is that it can feel more complicated than necessary for simple analyses. There is also a learning curve because users need to become familiar with concepts such as recipes, workflows, tuning, and resampling before the benefits become obvious.
+
+A typical `tidymodels` workflow looks like this:
+
+1. Split the data into training and testing sets.
+2. Create a `recipe()` to define preprocessing steps.
+3. Define a model using `parsnip`.
+4. Combine the recipe and model into a `workflow()`.
+5. Train and tune the model using resampling methods.
+6. Evaluate performance and test the final model on unseen data.
+
+MLOps refers to the processes used to deploy, maintain, and monitor machine learning models after they have been trained. This was a new concept for me because I had previously thought of machine learning as ending once a model was built. The `vetiver` package helps bridge that gap by packaging a trained model together with the information needed to reproduce predictions consistently. It can then be deployed as an API, making it easier for applications, dashboards, or other users to access the model. From a digital marketing perspective, I could see this being useful for deploying predictive models while ensuring that the underlying model remains documented, reproducible, and easier to maintain over time.
+
+# Prompt 2: Machine Learning Fundamentals (StatQuest) {#sec-prompt2}
+
+> 1.  In Step 2, I introduced five short videos that last about 10 minutes. Each video, courtesy of Stat Quest, explains some important fundamental concepts in machine learning. For each video, list key concepts, define them, explain them, and state why the concepts matter in Machine Learning.
+>
+>     1.  A Gentle Introduction to Machine Learning
+>     2.  Machine Learning Fundamentals: Cross Validation
+>     3.  Machine Learning Fundamentals: The Confusion Matrix
+>     4.  Machine Learning Fundamentals: Sensitivity and Specificity
+>     5.  Machine Learning Fundamentals: Bias and Variance
+
+### A Gentle Introduction to Machine Learning
+
+- **Training data** — the data used to teach a model how to recognize patterns and make predictions. This is where the model learns the relationships between variables.
+- **Test data** — data that the model has not seen before and is used to evaluate how well it performs on new information. This matters because a model is only useful if it can make accurate predictions beyond the data it was trained on.
+- **Overfitting** — when a model becomes too focused on the training data and starts memorizing noise rather than learning general patterns. The video's example showed how a complicated curve can fit training data almost perfectly but perform poorly on new data.
+- **Decision trees** — models that make predictions through a series of simple yes-or-no decisions. They demonstrate that machine learning models do not always need to be mathematically complex to be effective.
+
+### Cross Validation
+
+- **Train/test split** — dividing data into separate training and testing sets. The training set is used to build the model, while the test set is used to evaluate its performance.
+- **The limitation of a single split** — results can vary depending on how the data is divided. A model may appear stronger or weaker simply because of the particular split that was chosen.
+- **k-fold cross-validation** — a method that repeatedly rotates which portion of the data is used for testing so that every observation is evaluated. This provides a more reliable estimate of model performance.
+- **Leave-one-out cross-validation** — a special case where each observation serves as the test set once. This approach can be useful when working with very small datasets.
+
+### The Confusion Matrix
+
+- **True positives, true negatives, false positives, and false negatives** — the four possible outcomes when a model makes a prediction. These categories help us understand exactly where a model succeeds and where it makes mistakes.
+- **Multi-class confusion matrices** — an extension of the same idea for problems involving more than two categories. Correct predictions appear along the diagonal, while errors appear elsewhere in the matrix.
+- **Why confusion matrices matter** — accuracy alone does not reveal what types of mistakes a model is making. A confusion matrix provides a clearer picture of which categories are being confused and helps guide model improvements.
+
+### Sensitivity and Specificity
+
+- **Sensitivity** — the proportion of actual positive cases that the model correctly identifies. High sensitivity means fewer positive cases are missed.
+- **Specificity** — the proportion of actual negative cases that the model correctly identifies. High specificity means fewer false alarms.
+- **Why both matter** — two models may have similar accuracy but very different strengths and weaknesses. Depending on the problem, it may be more important to avoid missing positive cases or to avoid falsely identifying negatives as positives.
+
+### Bias and Variance
+
+- **Bias** — error caused by a model being too simple to capture the true relationships in the data. High bias often leads to underfitting.
+- **Variance** — error caused by a model being overly sensitive to the training data. High variance often leads to overfitting.
+- **The bias-variance trade-off** — one of the most important ideas in machine learning. Effective models balance flexibility and stability so they can learn meaningful patterns without becoming overly dependent on the training data. Techniques such as regularization, bagging, and boosting are commonly used to help achieve this balance.
+
+# Prompt 3: Hands-On Practice with tidymodels {#sec-prompt3}
+
+> 1.  In Step 3, I shared my notebook. For this section, you will be asked to do some work on the materials in the notebook.
+
+```{r}
+#| label: setup
+#| message: false
+#| warning: false
+library(tidymodels)
+library(tidyverse)
+library(conflicted)
+conflict_prefer("filter", winner = "dplyr")
+tidymodels_prefer(quiet = TRUE)
+```
+
+## Practice 3.1 — Explore Base R Modeling {#sec-practice31}
+
+> 1.  Section 5.4 — Practice 3.1 - Explore base R modeling:
+>
+>     1.  First, repeat the code given there to model the impact of car weight on mpg. Then use the `tidy()` function to see the estimates and other statistics in a tidy table. Also, use `glance()` to see the model statistics.
+>     2.  Use `augment()` and show what augment does by printing out the first 10 rows of the data.
+>     3.  Next, plot the residuals against the fitted values, as shown in the notebook. Interpret the plot in terms of homoskedasticity. Do you see a pattern? What would be an ideal pattern you look for in order to interpret a regression model meaningfully?
+>     4.  Try adding `hp` and `cyl` to the model. Does R² improve? Does the residual plot look better or worse? What does that tell you?
+
+```{r}
+#| label: fit-simple
+fit_simple <- lm(mpg ~ wt, data = mtcars)
+tidy(fit_simple)
+```
+
+```{r}
+#| label: glance-simple
+glance(fit_simple)
+```
+
+```{r}
+#| label: augment-simple
+augment(fit_simple) |>
+  head(10)
+```
+
+```{r}
+#| label: fig-resid-simple
+#| fig-cap: "Fitted vs. residuals for mpg ~ wt"
+augment(fit_simple) |>
+  ggplot(aes(x = .fitted, y = .resid)) +
+  geom_point(color = "#005030", alpha = 0.7) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "#FFB81C") +
+  labs(title = "Fitted Values vs. Residuals", x = "Fitted values", y = "Residuals") +
+  theme_minimal()
+```
+
+The single-predictor model shows that vehicle weight is a strong predictor of fuel economy. The model explains about 75% of the variation in `mpg` (R² = 0.753), and the coefficient for `wt` is highly significant (p < .001). Looking at @fig-resid-simple, the residuals are centered around zero, but they do not form a perfectly random pattern. There appears to be a slight curve, with some of the lightest and heaviest vehicles falling above the zero line while several mid-weight vehicles fall below it. The spread of the residuals remains fairly consistent across the fitted values, so there is not strong evidence of heteroskedasticity. Ideally, a residual plot should look like a random horizontal band around zero with no obvious patterns or changes in spread. When patterns such as curves appear, it suggests that the model may be missing important relationships in the data.
+
+```{r}
+#| label: fit-extended
+fit_extended <- lm(mpg ~ wt + hp + cyl, data = mtcars)
+tidy(fit_extended)
+glance(fit_extended)
+```
+
+```{r}
+#| label: fig-resid-extended
+#| fig-cap: "Fitted vs. residuals for mpg ~ wt + hp + cyl"
+augment(fit_extended) |>
+  ggplot(aes(x = .fitted, y = .resid)) +
+  geom_point(color = "#005030", alpha = 0.7) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "#FFB81C") +
+  labs(title = "Fitted Values vs. Residuals — Extended Model", x = "Fitted values", y = "Residuals") +
+  theme_minimal()
+```
+
+After adding `hp` and `cyl` to the model, the R² increases to 0.843, meaning the model explains about 84% of the variation in fuel economy. The residual plot also looks somewhat improved because the residuals are more evenly scattered around zero and the curved pattern seen in the simpler model is less noticeable. This suggests that horsepower and the number of cylinders provide additional information that helps explain differences in fuel economy beyond vehicle weight alone. While the extended model performs better, there are still a few observations that stand out, indicating that other factors or possible nonlinear relationships may still be influencing `mpg`.
+
+## Practice 3.2 — Fit a Model on Marketing Data {#sec-practice32}
+
+> 1.  Section 5.6 — Practice 3.2 — Fit a model on marketing data
+>
+>     1.  Fit a linear model predicting `monthly_spend` from `tenure`, `num_products`, and `region`.
+>         1.  Print out the model fit using the `tidy()` function. Also, print out the model fit using the `summary()` function. What is the difference?
+>         2.  Interpret the significance of each independent variable on the monthly spend at an alpha level of .05.
+>     2.  Check overall model quality using the `glance()` function. What does the output tell you about the quality of the model?
+>     3.  Visualize the residuals against the fitted (aka predicted) values, as shown in the codebook. What does the pattern tell you about potential heteroskedasticity?
+>     4.  Add `num_complaints` and `last_login_days` as predictors. What happens to R²? Does every predictor appear significant? What might this tell you about the data generating process we used to simulate the data?
+
+```{r}
+#| label: create-customer-data
+set.seed(42)
+n <- 1000
+customer_data <- tibble(
+  customer_id = 1:n,
+  tenure = sample(1:60, n, replace = TRUE),
+  monthly_spend = round(rnorm(n, mean = 85, sd = 25), 2),
+  num_products = sample(
+    1:5, n, replace = TRUE,
+    prob = c(0.3, 0.3, 0.2, 0.1, 0.1)
+  ),
+  num_complaints = rpois(n, lambda = 0.5),
+  last_login_days = sample(1:90, n, replace = TRUE),
+  region = sample(c("West", "East", "South", "Midwest"), n, replace = TRUE),
+  churn = factor(
+    ifelse(
+      0.05 * num_complaints + 0.02 * last_login_days -
+        0.015 * tenure - 0.005 * monthly_spend +
+        rnorm(n, 0, 0.5) > 0.3,
+      "yes", "no"
+    )
+  )
+)
+glimpse(customer_data)
+```
+
+```{r}
+#| label: spend-tidy
+spend_fit <- lm(monthly_spend ~ tenure + num_products + region, data = customer_data)
+tidy(spend_fit)
+```
+
+```{r}
+#| label: spend-summary
+summary(spend_fit)
+```
+
+`summary()` and `tidy()` provide many of the same model results, but they present them differently. The `summary()` function produces a traditional regression output that includes residual statistics, coefficient estimates, significance tests, R² values, and the overall F-test. In contrast, `tidy()` converts the coefficient results into a clean tibble with consistent column names, making the output easier to read, filter, and combine with other analyses. At an alpha level of .05, none of the predictors are statistically significant. The variables `tenure`, `num_products`, and the regional indicators all have p-values greater than .05, suggesting that none of them have a meaningful relationship with monthly spending in this dataset. The only significant term is the intercept, which represents the estimated average monthly spending for the baseline group.
+
+```{r}
+#| label: spend-glance
+glance(spend_fit)
+```
+
+The `glance()` output suggests that this model does a poor job of explaining monthly spending. The R² value is only about 0.004, meaning the model explains less than 1% of the variation in the outcome variable. The adjusted R² is negative, and the overall F-test is not statistically significant, which indicates that the predictors collectively provide little explanatory power.
+
+```{r}
+#| label: fig-resid-spend
+#| fig-cap: "Residuals vs. fitted values for the monthly spend model"
+augment(spend_fit) |>
+  ggplot(aes(x = .fitted, y = .resid)) +
+  geom_point(alpha = 0.3, color = "#005030") +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "#FFB81C") +
+  labs(title = "Residuals: Monthly Spend Model", x = "Fitted values ($)", y = "Residuals") +
+  theme_minimal()
+```
+
+Looking at @fig-resid-spend, the residuals appear randomly scattered around zero with no obvious funnel shape or systematic pattern. This suggests that heteroskedasticity is not a major concern because the variance of the residuals appears relatively constant across the range of fitted values. However, a well-behaved residual plot does not necessarily mean the model is useful. In this case, the lack of a pattern is likely because the predictors have very little relationship with monthly spending to begin with.
+
+```{r}
+#| label: spend-extended
+spend_fit2 <- lm(
+  monthly_spend ~ tenure + num_products + region + num_complaints + last_login_days,
+  data = customer_data
+)
+tidy(spend_fit2)
+glance(spend_fit2)
+```
+
+```{r}
+#| label: fig-resid-spend-extended
+#| fig-cap: "Residuals vs. fitted values for the extended monthly spend model"
+augment(spend_fit2) |>
+  ggplot(aes(x = .fitted, y = .resid)) +
+  geom_point(alpha = 0.3, color = "#005030") +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "#FFB81C") +
+  labs(title = "Residuals: Extended Monthly Spend Model", x = "Fitted values ($)", y = "Residuals") +
+  theme_minimal()
+```
+
+After adding `num_complaints` and `last_login_days`, the model changes very little. The R² value increases only slightly, while the adjusted R² becomes even lower. Neither of the new predictors is statistically significant, and the residual plot looks almost identical to the original version. This suggests that the additional variables are not providing meaningful information about monthly spending. More importantly, it highlights the way the data was generated. Since `monthly_spend` was simulated independently of the other variables, there is no real relationship for the model to discover. As a result, the lack of significant predictors is exactly what we would expect to see.
+
+::: callout-note
+This is not a modeling error. The dataset was intentionally created so that `monthly_spend` is essentially random noise and unrelated to the other predictors. Because there is no true relationship in the underlying data-generating process, the regression model correctly finds little to no predictive power.
+:::
+
+[^talk]: Silge, J., & Kuhn, M. (2022). *Good Practices for Applied Machine Learning* [Conference keynote]. posit::conf(2022).
