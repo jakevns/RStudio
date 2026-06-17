@@ -1,0 +1,110 @@
+---
+title: "M02-Introduction to Data Science in R-Reflection"
+author: "Jake Evans"
+date: '`r format(Sys.time())`'
+format: 
+  html: 
+    theme: sandstone
+    toc: true
+    toc-depth: 4
+    toc-expand: true
+    number-sections: true
+    code-link: true
+    code-fold: true
+    code-tools: true
+    code-overflow: wrap
+    code-summary: "Show the R code"
+    embed-resources: true
+editor: visual
+execute: 
+  freeze: auto
+---
+
+This document responds to each of the five M02 reflection prompts in order. The original prompt text appears as a blockquote immediately before my response to it.
+
+# Prompt 1: The Reproducibility Crisis Video {#sec-prompt1}
+
+> 1.  Summarize the video presentation about the reproducibility crisis
+>
+>     1.  Summarize the new things you learned in this module about reproducible data science and literate coding. 
+>
+>     2.  What do you think about the reproducible crisis in your field? How can Quarto help address the concerns you have about reproducibility in your line of work?
+
+The Step 1 workshop from Duke University Libraries focused on the reproducibility crisis and the distinction between reproducibility and replicability. Reproducibility means someone can rerun the same code on the same dataset while getting the same results, while replicability involves collecting new data and reaching a similar conclusion. The workshop introduced a "reproducible project pyramid" that emphasized data management, documentation, version control, and archiving throughout the research process. I also learned several new concepts about reproducible data science, including the differences between Quarto and R Markdown and the importance of treating GitHub as a collaboration tool rather than an archive. I also saw how Quarto combines code, analysis, and documentation into a single reproducible workflow, an approach known as *literate programming*[^1].
+
+[^1]: The term originates with Donald Knuth, who in 1984 proposed interleaving program code with explanatory prose so a document could be read on its own.
+
+In the creative arts and digital marketing fields, I think reproducibility is often overlooked because creative projects and campaign results are rarely documented in a consistent way. As an artist, I can usually tell when a piece or social media post performed well, but months later it can be difficult to reconstruct exactly why. In digital marketing, reports are often built manually from exported analytics, making them difficult to verify or update. Quarto could help address these issues by keeping data, code, visualizations, and written analysis together in one document, creating a repeatable process that makes performance reporting more transparent and easier to revisit over time.
+
+::: callout-note
+This connects directly to the GitHub setup I struggled through in M01. I now realize that getting `git.exe` configured in RStudio is the foundation layer of the entire pyramid.
+:::
+
+# Prompt 2: Quarto {#sec-prompt2}
+
+> 1.  Summarize the instructor's lectures in the previous module about Quarto that you found impressive (**Steps 2, 3, and 4 in this module, as well as Step 3 of the W01-Introduction to Literate Programming** module). Do you see yourself using Quarto every day for your job or studies, such as taking notes in class or preparing a presentation? More eye-catching effects will be introduced in later modules.
+
+The most impressive concept from the Quarto lectures was single-source publishing. I was surprised that a single .qmd file could generate a polished HTML report, a PDF, and even a reveal.js presentation without requiring separate formatting for each output. Tom Mock's demonstration of rendering the same document into both HTML and PDF formats really helped make that concept click for me. I also found the publishing workflows using Quarto Pub and GitHub Pages especially useful because they connected directly to some of the work I had already done in Module 1 while learning how Quarto handles styling.
+
+Realistically, I do not see myself using Quarto every day, but I can see it becoming an important tool for both my studies and future career in creative digital marketing. I plan to use it for:
+
+- Class notes and assignment write-ups
+
+- Project reports where reproducibility matters
+
+- Presentations, once I'm more comfortable with reveal.js
+
+As someone with a background in the creative arts, I am also interested in learning more about Quarto's design and presentation capabilities, and I look forward to exploring the more advanced and visually engaging features introduced in later modules.
+
+# Prompt 3: Tidyverse Ecosystem {#sec-prompt3}
+
+> 1.  Summarize what you learned in this module about the Tidyverse ecosystem in R (**Step 5**). What can you do with R?
+
+The Tidyverse is described as a "mega package" of eight core packages that share a consistent grammar and design philosophy, which is what makes them easy to learn together rather than as eight separate tools:
+
+| Package | Role                                                     |
+|---------|----------------------------------------------------------|
+| readr   | Reads in rectangular data (CSV, TSV) quickly             |
+| tibble  | A friendlier, more informative version of a data frame   |
+| tidyr   | Reshapes data between wide and long formats              |
+| dplyr   | Filters, sorts, selects, mutates, and summarizes data    |
+| stringr | Consistent toolkit for working with text                 |
+| forcats | Tools for working with categorical (factor) variables    |
+| purrr   | Functional programming — applying functions across lists |
+| ggplot2 | Grammar-of-graphics based visualization                  |
+
+The dplyr-plus-ggplot2 combination below is a small working example of the pattern Step 5 of Thomas Mock's, "Intro to the Tidyverse", video covered: filter/group/summarize the data, then hand it straight to ggplot2.
+
+```{r}
+#| label: fig-mtcars-demo
+#| fig-cap: "Average miles per gallon by cylinder count"
+#| message: false
+#| warning: false
+library(tidyverse)
+
+mtcars |>
+  group_by(cyl) |>
+  summarize(mean_mpg = mean(mpg)) |>
+  ggplot(aes(x = factor(cyl), y = mean_mpg)) +
+  geom_col(fill = "#8B5E3C") +
+  labs(x = "Cylinders", y = "Average MPG",
+       title = "Fuel Efficiency by Engine Size")
+```
+
+@fig-mtcars-demo took three lines of dplyr and three lines of ggplot2 to produce — which is really the answer to "what can you do with R." Beyond statistics, R (mostly through this ecosystem) can produce publication-quality charts, render documents straight to Word/HTML/PDF/PowerPoint, build interactive dashboards, run machine learning models, and even call Python code from inside the same script.
+
+# Prompt 4: Two Career Ready Packages {#sec-prompt4}
+
+> 1.  Refer to the video introducing the top 20 packages. Among the various packages introduced, choose two packages beyond the Tidyverse ecosystem, base R, and Quarto that could enhance your job/career (**Step 6**). Tell me why you think so.
+
+Among the packages introduced in the top-20 packages video, the two that stood out most to me were Shiny and Plotly. I can see both being useful in a future career in digital media marketing because they focus on presenting data in a way that is interactive and engaging. Shiny allows users to turn reports and analyses into interactive web applications. Instead of creating a new report every time someone wants to view data from a different platform or time period, a stakeholder could explore the information themselves through a dashboard. This seems especially valuable in marketing, where clients and team members often want to examine campaign performance from different perspectives.
+
+Plotly also caught my attention because of its strong visualization capabilities. As someone with a background in the creative arts, I appreciate the importance of presentation and user experience. Plotly can transform static charts into interactive visualizations with features such as hover information, zooming, and panning, making it easier for audiences to explore and understand the data. For digital marketing campaigns, where communicating results clearly is just as important as collecting the data itself, I think tools like Plotly can help create more engaging and professional presentations.
+
+# Prompt 5: R versus Python Debate {#sec-prompt5}
+
+> Refer to the debate on R vs. Python (**Step 7**). What is your take on this debate?  In your response, consider how Quarto enables people using R and Python in the same team to still collaborate, as illustrated in the Video you watched in a few modules ahead: "Mine Çetinkaya-Rundel & Julia Stewart Lowndes \| Hello Quarto: Share, Collaborate, Teach, Reimagine" ([https://www.youtube.com/watch?v=p7Hxu4coDl8&t=1717sLinks to an external site.](https://www.youtube.com/watch?v=p7Hxu4coDl8&t=1717s)
+
+My perspective on the R versus Python debate is that the distinction is becoming less important as tools continue to evolve. R is still known for its strengths in statistics and data visualization, while Python is often preferred for software development, machine learning, and production environments. If someone is unsure which language to learn first, Python may offer broader career flexibility, but I can also see why R remains popular in research and data analysis.
+
+What stood out to me is how Quarto makes it possible for people using either language to collaborate on the same project. Rather than forcing a team to choose between R and Python, Quarto provides a shared framework for creating reports, presentations, and other documents. Team members can work in the language they are most comfortable with while still contributing to the same final product. My main takeaway is that I am learning R because it aligns well with the goals of this course, but I would also like to learn Python in the future. Instead of viewing the two languages as competitors, I see them as complementary tools that can work together depending on the needs of the project and the team.
