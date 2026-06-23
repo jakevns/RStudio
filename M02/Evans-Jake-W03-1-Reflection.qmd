@@ -190,40 +190,28 @@ variation in the outcome variable.
 > variation around the regression line? What is variation around the
 > mean minus variation around the line?
 
-+--------------------------+---------------------------------------------------+--------------+
-| Quantity                 | Formula                                           | Meaning      |
-+==========================+===================================================+==============+
-| $\text{SS}_{\text{tot}}$ | $\sum(y_i - \bar{y})^2$                           | This is the  |
-|                          |                                                   | total amount |
-| *Variation around the    |                                                   | of variation |
-| mean*                    |                                                   | in the       |
-|                          |                                                   | outcome      |
-|                          |                                                   | variable     |
-|                          |                                                   | when the     |
-|                          |                                                   | mean is used |
-|                          |                                                   | as the       |
-|                          |                                                   | prediction   |
-|                          |                                                   | for every    |
-|                          |                                                   | observation. |
-+--------------------------+---------------------------------------------------+--------------+
-| $\text{SS}_{\text{res}}$ | $\sum(y_i - \hat{y}_i)^2$                         | This is the  |
-|                          |                                                   | amount of    |
-| *Variation around the    |                                                   | variation    |
-| line*                    |                                                   | that remains |
-|                          |                                                   | unexplained  |
-|                          |                                                   | after        |
-|                          |                                                   | fitting the  |
-|                          |                                                   | regression   |
-|                          |                                                   | model.       |
-+--------------------------+---------------------------------------------------+--------------+
-| $\text{SS}_{\text{reg}}$ | $\text{SS}_{\text{tot}} - \text{SS}_{\text{res}}$ | This is the  |
-|                          |                                                   | amount of    |
-| *Difference*             |                                                   | variation    |
-|                          |                                                   | explained by |
-|                          |                                                   | the          |
-|                          |                                                   | regression   |
-|                          |                                                   | model        |
-+--------------------------+---------------------------------------------------+--------------+
++--------------------------+---------------------------------------------------+----------------------+
+| Quantity                 | Formula                                           | Meaning              |
++==========================+===================================================+======================+
+| $\text{SS}_{\text{tot}}$ | $\sum(y_i - \bar{y})^2$                           | This is the total    |
+|                          |                                                   | amount of variation  |
+| *Variation around the    |                                                   | in the outcome       |
+| mean*                    |                                                   | variable when the    |
+|                          |                                                   | mean is used as the  |
+|                          |                                                   | prediction for every |
+|                          |                                                   | observation.         |
++--------------------------+---------------------------------------------------+----------------------+
+| $\text{SS}_{\text{res}}$ | $\sum(y_i - \hat{y}_i)^2$                         | This is the amount   |
+|                          |                                                   | of variation that    |
+| *Variation around the    |                                                   | remains unexplained  |
+| line*                    |                                                   | after fitting the    |
+|                          |                                                   | regression model.    |
++--------------------------+---------------------------------------------------+----------------------+
+| $\text{SS}_{\text{reg}}$ | $\text{SS}_{\text{tot}} - \text{SS}_{\text{res}}$ | This is the amount   |
+|                          |                                                   | of variation         |
+| *Difference*             |                                                   | explained by the     |
+|                          |                                                   | regression model     |
++--------------------------+---------------------------------------------------+----------------------+
 
 **In simple terms:** $\text{SS}{\text{tot}}$ shows how much the outcome
 values vary around the mean, while $\text{SS}{\text{res}}$ shows how
@@ -954,13 +942,7 @@ fewer features/simpler model setting.
 
 # Appendix {#sec-appendix}
 
-+----------------+--------------------------------------------------------------------------------------------------------------------+
-| Resource       | Link                                                                                                               |
-+================+====================================================================================================================+
-| Published      | [https://jakevns.github.io/RStudio/](https://jakevns.github.io/RStudio/M02/Evans-Jake-W03-1-Reflection.html){.uri} |
-| Report (GitHub |                                                                                                                    |
-| Pages)         |                                                                                                                    |
-+----------------+--------------------------------------------------------------------------------------------------------------------+
-| GitHub         | [https://github.com/jakevns/RStudio](https://github.com/jakevns/RStudio/tree/main/M02){.uri}                       |
-| Repository     |                                                                                                                    |
-+----------------+--------------------------------------------------------------------------------------------------------------------+
+| Resource | Link |
+|----|----|
+| Published Report (GitHub Pages) | [https://jakevns.github.io/RStudio/](https://jakevns.github.io/RStudio/M02/Evans-Jake-W03-1-Reflection.html){.uri} |
+| GitHub Repository | [https://github.com/jakevns/RStudio](https://github.com/jakevns/RStudio/tree/main/M02){.uri} |
