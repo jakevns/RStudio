@@ -961,6 +961,6 @@ fewer features/simpler model setting.
 | Report (GitHub |                                                                                                                    |
 | Pages)         |                                                                                                                    |
 +----------------+--------------------------------------------------------------------------------------------------------------------+
-| GitHub         | <https://github.com/jakevns/RStudio>                                                                               |
+| GitHub         | [https://github.com/jakevns/RStudio](https://github.com/jakevns/RStudio/tree/main/M02){.uri}                       |
 | Repository     |                                                                                                                    |
 +----------------+--------------------------------------------------------------------------------------------------------------------+
