@@ -186,7 +186,7 @@ Shopify's tools could make the store easier to manage and promote with collectio
 ## Project Links
 
 - **GitHub Repository:** <https://github.com/jakevns/RStudio>
-- **GitHub Pages (Published Report):** <https://jakevns.github.io/RStudio/>
+- **GitHub Pages (Published Report):** <https://jakevns.github.io/RStudio/assign1/Bailey,%20Jake-ITP-Assign1.html>
 
 ## Session Info
 
