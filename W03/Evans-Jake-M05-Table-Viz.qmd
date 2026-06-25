@@ -1,0 +1,295 @@
+---
+title: "M05 — Visualizing Data with Highly Customizable Tables"
+author: "Jake Evans"
+date: '`r format(Sys.time())`'
+format:
+  html: 
+    page-layout: full
+    toc: true
+    toc-depth: 4
+    toc-expand: true
+    number-sections: true
+    code-fold: true
+    code-overflow: wrap
+    code-tools: true
+    embed-resources: true
+    theme: sandstone
+editor: visual
+execute:
+  freeze: auto
+  warning: false
+  message: false
+---
+
+# Visualizing Data with Highly Customizable Tables
+
+This module introduced the `{gt}` and `{gtExtras}` packages as a framework for building publication-quality tables in R. Unlike a quick `kable()` call, these packages treat a table as a structured visual object — with a grammar, composable layers, and fine-grained control over every element from font weight to inline sparklines.
+
+------------------------------------------------------------------------
+
+# Reflection on the Videos {#sec-reflection}
+
+::: panel-tabset
+## What I Learned
+
+> **Prompt:** Summarize what you learned from the videos you watched.
+
+These videos made on thing very clear: tables can be a much more powerful tool than I've ever given them credit for. I often think of `ggplot2` when I consider how to communicate the data I need visualized, but a well designed table will show exact values, comparisons between groups, and showcase patterns/distributions all in one place.
+
+The video that stood out to me the most was definitely Professor Jung's live lecture, where he went through his own research data cleaning and table creating process. Watching him work with a multi-wave survey dataset made the messiness of real world data feel much more concrete. He combined two Prolific panel exports using `bind_rows()` , filtered responses based on completion codes, reverse coded scale items, check reliablity with Cronbach's $\alpha$, and eventually arrived at a final cleaned sample of $n = 736$ participants.
+
+A section that really stuck with me was when he found that Qualitrics automatically assigned no sequential numeric codes to a 7 point scale variable; using values like `4`, `5`, and `6` istead of `1`, `2`, and `3`. Due to this, the professor had to manually recode the variables prior to analysis. This was a great reminder that hidden data quality mishaps will easily slip through if you're not carefully when inspecting dataset's first.
+
+The second part of the lecture introduced `{gt}` and `{gtsummary}` as tools for creating publication ready descriptive statistic tables. Professor Jung showcased how `tbl_summary()` can quickly create a clean demographic table with counts, percentages, means, and even standard deviations. He also demonstrated how `add_difference()` can add a difference column and automatically run the appropriate statistical tests. The main take away I had was that these tools aren't just for exploring data, they assist in creating tables that are polished enough to use directly in reports, manuscripts, and even professional presentations.
+
+The Rich Lannone video helped me understand the underlying grammar of `{gt}` in greater detail. He showed how to build a table layer by layer with functions such as `tab_header()`, `cols_label()`, `fmt_number()`, `tab_footnote()`, `tab_source_note()`, `tab_style()`, and `data_color()` . I liked that his workflow showed that table making as an interactive design process instead of expecting the table to be perfection after one function call, he'd render the table, alter it slightly, then render it again.
+
+The political science professor's video reinforces this design philosophy workflow while introducing additional formatting tools: `opt_table_font()`, `cols_width()`, `cols_align()`, and `tab_options()` for controlling borders and layout. The video also showed how `gtsave()` exports a finished table as a PNG file, which can be useful when placing tables into Word documents or other presentation formats (PowerPoint, slides, etc)
+
+The `gtExtras` video introduced functions such as `gt_plt_dist()` and `gt_plt_sparkline()`, which can place small distribution plots directly inside a table cells. One important detail that I learned was the need to prepare the data with something like `summarize(list_data = list(col))` so that the table contains a list column. That structure allows for `gtExtras` to understand what data needst o be plotted within each individual cell.
+
+Overall, these videos helped me understand data cleaning, analysis, and table design are closely linked. A good final table depends on careful data preparation, and utilizing tools like `{gt}`, `{gtsummary}`, or `gtExtras` make it much easier to turn cleaned data into clear and professional looking visuals that tell a story.
+
+## What I Liked About `{gt}` and `{gtExtras}`
+
+> **Prompt:** What did you like about the gt and gtExtra packages demonstrated in the videos?
+
+What I appreciate the most about `{gt}` was that its designed with the reader in mind along with the data. Functions like `tab_spanner()` make it easier to create logical groupings across columns, which can assist the reader in understanding how the data is organized prior to even seeing the numbers. I also liked how `data_color()` can add another layer of meaning by showing magnitude, visually, without having to create a separate chart. Similarly, `tab_footnote()` works great with location helpings (like `cells_column_labels()` and `cells_stub()` ), so annotations can be placed precisely where the reader is already looking.
+
+`{gtExtras}` builds on this concept by turning tables into even stronger visualization tools. The `gt_plt_sparkline()` function stood out to me because it adds a small inline chart that is directly inside a table cell. After preparing the data with a step such as `summarize(list_data = list(col))`, one line of code can show more than just a summary statistic. It can also reveal a shape/pattern of the underlying data. I feel this makes the table much more visually informative while still maintain data that is clean and easy to read.
+
+## Tables vs. Charts: How They Complement Each Other
+
+> **Prompt:** How do tables complement charts for data visualization?
+
+Tables and charts are useful for a variety of reasons; charts are often better for quickly showcasing trends, patterns, or finding relationships. For example, a chart can make it easy to see whether a line is increasing, is skewed, Charts and tables serve different cognitive tasks. A chart is faster for revealing trends, patterns, and relationships at a glance — a line going up, a distribution skewed right, two groups clearly separated. A table is better when the reader needs exact values, wants to compare specific rows, or needs to reference a number precisely rather than estimate it visually.
+
+They're especially effective hwne they're used together, which is a huge strength of `{gtExtras}` . A table column showing mean sales by group is helpful on its own, but adding a sparkline next to it can provide more context for the reader. The sparkline can show if the mean came from a steady trend, a suddent spike, or a lot of variation over time. In that way, the table prvodies precision while the chart can add visual context.
+
+## When I Would Choose Tables Over Charts
+
+> **Prompt:** Under what circumstances would you prefer to use tables rather than charts to visualize data?
+
+I would prefer to use a table instead of a chart when the reader needs to focus on exactly values as opposed to specific patterns. For example, in a stakeholder report, a table would be better if the audience needs to research to cite specific numbers (like exact media spend, sales totals, or performance metrics).
+
+Tables are also useful when trying to compare a moderate number of groups across several variables simultaneously; a chart can become messy/crowded in that situation. A table can organize the same information much more clearly using rows or columns.
+
+I would also choose a table if the dataset includes a mix of continuous and categorical variables that don't fit nearly into a single type of chart. With those cases, a table can present different sort of information together without forcing everything into a single visual format.
+
+Another situation where tables are helpful is when I want to show both a summary statistic with some context regarding the distribution. With `{gtExtras}`, for example, I could include a statistic like mean sales while also adding an inline sparkline or distribution plot. That gives the reader both the precise number as well as a quick visual sense of any underlying patterns.
+
+In my Digital Marketing work, I believe this is going to come up often in competitive analyses or media budget summaries. In those sorts of reports readers will usually need both the main takeaway and the details behind it.
+:::
+
+------------------------------------------------------------------------
+
+# Descriptive Statistics Table: Marketing Dataset {#sec-table}
+
+::: panel-tabset
+## Setup
+
+> **Prompt:** Use the synthetic data introduced this week for the lecture. Pick some variables of your interest from the data and share some descriptive statistics using gt and gtExtra functions together to show numbers and small charts in one table. In this table, incorporate the following at a minimum.
+
+```{r}
+#| label: setup
+
+library(gt)
+library(gtExtras)
+library(tidyverse)
+library(datarium)
+
+# Load the synthetic marketing dataset
+data("marketing", package = "datarium")
+```
+
+## Data Overview
+
+The `marketing` dataset[^1] is a synthetic dataset from the `{datarium}` package. It includes 200 observations showing advertising spending across three channels, along with the resulting sales figures. All monetary values are reported in **thousands of USD**.
+
+```{r}
+#| label: data-glimpse
+
+glimpse(marketing)
+```
+
+The dataset includes four variables:
+
+- `youtube`: Advertising spend on YouTube, measured in thousands of USD.
+
+- `facebook`: Advertising spend on Facebook, measured in thousands of USD.
+
+- `newspaper`: Advertising spend in newspapers, measured in thousands of USD.
+
+- `sales`: Revenue generated, measured in thousands of USD.
+
+## Data Wrangling
+
+Prior to building the table, I grouped the observations into three **Youtube spend tiers**: Low, Medium, and High. These tiers were based on terciles of the `youtube` variable. This approach makes it visually easier to compare how the advertising channel mix and sales outcomes different accross various levels of Youtube investment. That comparison is especially revelant when it comes to a digital marketing strategy context, where the marketers often need to understand whether higher investment in one channel is associated with better performance.
+
+:::callout-note I was having trouble figuring out how to organize the code and so I had Chatgpt assist me in setting up the code cleanly and correctly. Fun Fact: the seed was set to 42 because of Hitchhikers Guide to the Galaxy.
+
+```{r}
+#| label: wrangle
+
+set.seed(42)
+
+marketing_grouped <- marketing |>
+  mutate(
+    youtube_tier = case_when(
+      youtube < quantile(youtube, 1/3) ~ "Low YouTube",
+      youtube < quantile(youtube, 2/3) ~ "Medium YouTube",
+      TRUE                             ~ "High YouTube"
+    ),
+    youtube_tier = factor(youtube_tier,
+                          levels = c("Low YouTube", "Medium YouTube", "High YouTube"))
+  )
+
+# Summary table: one row per tier, with list-columns for sparklines
+marketing_summary <- marketing_grouped |>
+  group_by(youtube_tier) |>
+  summarize(
+    n           = n(),
+    youtube_avg = mean(youtube),
+    facebook_avg= mean(facebook),
+    newspaper_avg = mean(newspaper),
+    sales_avg   = mean(sales),
+    sales_sd    = sd(sales),
+    sales_min   = min(sales),
+    sales_max   = max(sales),
+    sales_data  = list(sales),   # needed for sparkline
+    .groups = "drop"
+  )
+```
+
+## The Table
+
+```{r}
+#| label: gt-table
+#| column: screen
+#| fig-cap: "Summary of marketing spend and sales outcomes by YouTube investment tier"
+marketing_summary |>
+  arrange(youtube_tier) |>
+  gt(rowname_col = "youtube_tier") |>
+
+  # ── Header ──────────────────────────────────────────────────────────────────
+  tab_header(
+    title    = md("**Marketing Channel Spend & Sales by YouTube Investment Tier**"),
+    subtitle = md("Mean ad spend and sales outcomes across *200 synthetic observations*")
+  ) |>
+
+  # ── Stub head label ─────────────────────────────────────────────────────────
+  tab_stubhead(label = md("**YouTube Tier**")) |>
+
+  # ── Spanner labels ──────────────────────────────────────────────────────────
+  tab_spanner(
+    label   = md("**Ad Channel Spend** *(mean, $K)*"),
+    columns = c(youtube_avg, facebook_avg, newspaper_avg)
+  ) |>
+  tab_spanner(
+    label   = md("**Sales Outcomes** *(mean $K)*"),
+    columns = c(sales_avg, sales_sd, sales_data)
+  ) |>
+
+  # ── Column labels ────────────────────────────────────────────────────────────
+  cols_label(
+    n             = md("*n*"),
+    youtube_avg   = "YouTube",
+    facebook_avg  = "Facebook",
+    newspaper_avg = "Newspaper",
+    sales_avg     = "Mean",
+    sales_sd      = "Std Dev",
+    sales_data    = "Distribution"
+  ) |>
+
+  # ── Inline density plot (gtExtras) ───────────────────────────────────────────
+  gt_plt_dist(
+    sales_data,
+    type       = "density",
+    line_color = "#3d6b45",
+    fill_color = "#8fbc8f"
+  ) |>
+
+  # ── Number formatting ────────────────────────────────────────────────────────
+  fmt_currency(
+    columns  = c(youtube_avg, facebook_avg, newspaper_avg,
+                 sales_avg, sales_sd, sales_min, sales_max),
+    currency = "USD",
+    decimals = 2
+  ) |>
+  fmt_integer(columns = n) |>
+
+  # ── Color scale on mean sales ─────────────────────────────────────────────
+  data_color(
+    columns = sales_avg,
+    palette = c("#fff7ec", "#fc8d59", "#7f0000")
+  ) |>
+
+  # ── Bold column labels ────────────────────────────────────────────────────
+  tab_style(
+    style     = cell_text(weight = "bold"),
+    locations = cells_column_labels()
+  ) |>
+
+  # ── Footnotes ─────────────────────────────────────────────────────────────
+  tab_footnote(
+    footnote  = "Color intensity reflects mean sales; darker red = higher revenue.",
+    locations = cells_column_labels(columns = sales_avg)
+  ) |>
+  tab_footnote(
+    footnote  = "Density plots show the full sales distribution within each YouTube tier.",
+    locations = cells_column_labels(columns = sales_data)
+  ) |>
+
+  # ── Source note ───────────────────────────────────────────────────────────
+  tab_source_note(
+    source_note = md(
+      "**Source:** Kassambara A (2023). *datarium* R package (v0.1.1). Synthetic dataset for educational use."
+    )
+  ) |>
+
+  # ── Column widths ─────────────────────────────────────────────────────────
+  cols_width(
+    youtube_tier  ~ px(120),
+    n             ~ px(40),
+    c(youtube_avg, facebook_avg, newspaper_avg) ~ px(90),
+    c(sales_avg, sales_sd)                      ~ px(85),
+    sales_data    ~ px(120)
+  ) |>
+
+  # ── Table options ─────────────────────────────────────────────────────────
+  tab_options(
+    table.font.names                  = "Verdana",
+    table.width                       = pct(100),
+    heading.align                     = "left",
+    table.border.top.color            = "black",
+    table.border.bottom.color         = "black",
+    heading.border.bottom.color       = "black",
+    column_labels.border.bottom.color = "black",
+    table_body.border.bottom.color    = "black"
+  )
+```
+
+## Why This Table Belongs in the MSDM Project {#sec-justification}
+
+This table connects directly to my MSDM capstone work at the CPP Farm Store retail media strategy. The main analytical question is very similar: *how does investment in specific marketing channels relate to sales outcomes, and how do those relationships morph across various spending tiers?*
+
+A bar chart could show the mean sales for each group, but it would leave out vital distrubtional information. The denstiy plots in the rightmost column add more context bu showing whether a tier's higher average sales come from consistently strong perfromance or few a few high oultier observations pulling the average upwards. That distintion matters when making **budget allocation recommendations** for our client.
+
+The currency formatting and labeled column spanners also make the table better for stakeholders, without technical expertise, can still understand. In a written report or presentation, someone should be able to scan the row for "High Youtube" and quickly see the average spend, the average sales return, and the shape of the sales distribution; in a single place. This sort of easy to see evidence is the sort of deliverable we should be handling to our CPP Farm Store client.
+
+This table is directly applicable to my MSDM capstone work on the CPP Farm Store retail media strategy. The core analytical question there is the same as the one this table answers: *how does investment in a particular channel relate to sales outcomes, and how do those relationships vary across spend tiers?*
+
+A bar chart could show mean sales per group, but it would lose the distributional information — the density plots in the table's rightmost column reveal, for instance, whether a tier's high mean comes from consistently strong performance or from a few outlier observations pulling the average up. That distinction matters when recommending a budget allocation strategy to a client.
+
+> **Callout — Portfolio Note:** This table was built with `{gt}` and `{gtExtras}` as part of IBM 6540 coursework. The underlying workflow: `group_by()` → `summarize()` → `gt()` → `layered formatting`; is reusable across any dataset with a grouping variable and numeric outcomes, making it a practical template for future client reports.
+:::
+
+[^1]: Kassambara A (2023). *datarium: Data Bank for Statistical Analysis and Visualization.* R package version 0.1.1. The dataset is synthetic and intended for educational use in regression and data visualization contexts.
+
+------------------------------------------------------------------------
+
+# GitHub Pages URL {#sec-github}
+
+*Published URL will be added here after rendering and pushing to GitHub Pages.*
+
+[View Published Report](https://jakevns.github.io/RStudio/W03/Evans-Jake-M05-Table-Viz.html)
