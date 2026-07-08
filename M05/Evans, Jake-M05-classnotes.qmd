@@ -1,0 +1,427 @@
+---
+title: "M05: Reflection on Odds, Log(Odds), Odds Ratio, and Log(OR)"
+author: "Jake Evans"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 4
+    toc-expand: 1
+    toc-location: right-body
+    toc-title: "Contents"
+    number-sections: true
+    code-fold: show
+    code-tools: true
+    theme: cosmo
+    highlight-style: github
+    df-print: paged
+    embed-resources: true
+execute:
+  warning: false
+  message: false
+  freeze: true
+---
+
+# Introduction {#sec-intro}
+
+This report is my corrected set of class notes from the Module 05 review session. In that session, Professor Jung went through the first part of the Logistic Fundamentals assignment, including the 23 video quiz questions and the log assignment from the Week 2 notebook. The reflection prompt was:
+
+> **Tasks:** Watch the class recording available in Step 1. Redo your assignment for the questions reviewed in the class. Take note of the answers, rationale, and code that you should know. Note that the concepts explained can be asked in the exam.
+
+For each question that was reviewed in class, I restated the question, worked through the code again, and explained the rationale in my own words. I wrote this in a way that would actually help me study later, especially when reviewing for the exam. The main idea that connects this whole module is that **logarithms turn multiplication into addition**. From there, a lot of the other concepts start to make more sense, including geometric means, log-transformed income, odds, log(odds), and the logit used in logistic regression.[^1]
+
+[^1]: The video's phrasing that stuck with me was: "the core job of a logarithm is to isolate the exponent."
+
+::: {.callout-note title="A note on the data"}
+The original assignment used the `mail_data` dataset, which had 3,000 customers, a `responded` outcome, and an 80/20 stratified split using `set.seed(123)`. To make sure this document can render on its own, I recreated the relevant values directly: 142 "Yes" responses out of 3,000. These are the same values used in the class review. For the parts where the review used the fitted model's predictions (`preds`), I created a small example tibble with the same structure, including the `.pred_Yes` column, so the code is still fully runnable.
+
+
+# Setup {#sec-setup}
+
+```{r}
+#| label: setup
+library(tidyverse)
+set.seed(123)
+
+# Recreate the response variable from mail_data: 142 Yes out of 3,000
+responded <- c(rep("Yes", 142), rep("No", 3000 - 142)) |> sample()
+```
+
+# Question 1: What Does a Log Do? {#sec-q1}
+
+## The core idea
+
+**Prompt:** Complete the statement: if $2^5 = 32$, then $\log_2(32) = \;?$
+
+A logarithm is the inverse of exponentiation. Its whole job is to isolate the exponent. Since $2^5 = 32$, then:
+
+$$
+\log_2(32) = 5
+$$ {#eq-logbasics}
+
+@eq-logbasics is just asking, "2 raised to what power gives me 32?" The answer is the exponent, 5.
+
+## Verify in R
+
+```{r}
+#| label: q1-verify
+log(32, base = 2)
+```
+
+Confirmed — we get 5.
+
+## Why this matters for income data
+
+**Prompt:** Why is this property useful when income values range from \$7,000 to \$455,000 in the dataset?
+
+Income is right-skewed, meaning most people earn lower or moderate amounts, while a smaller number of people earn much higher amounts. On the original scale, this makes the data harder to use in a linear model because the values are spread out so unevenly. In this case, income ranges from about 7,000 to 455,000, so the long right tail can pull the model too much toward the extreme values. Taking the log helps by compressing the income values into a smaller, more manageable range:
+
+```{r}
+#| label: q1-income
+log10(7000)
+log10(455000)
+```
+
+So on the original scale, the difference between the highest and lowest income values is huge: $455{,}000 / 7{,}000 \approx 65$, or about a 65-fold difference. But after taking the log, that same difference becomes much smaller, going from about 3.85 to 5.66, which is only around 1.8 log units. This compression helps reduce the impact of extreme values and makes the relationship between income and the response look more linear.
+
+::: {.callout-tip title="Mental math trick from class"}
+A helpful trick from class is that you can estimate logs by breaking a number into a smaller number times a power of 10. For example, $7{,}000 = 7 \times 10^3$, so $\log_{10}(7{,}000) = \log_{10}(7) + \log_{10}(10^3) = 0.845 + 3 = 3.845$. The same idea works for $455K: $455{,}000 = 4.55 \times 10^5$, so its log is $\log_{10}(4.55) + 5 \approx 0.658 + 5 = 5.658$. Basically, the log lets us turn multiplication into addition, which is the main trick.
+
+:::
+
+## Bonus from class: comparing bases
+
+The professor extended this in class: the *bigger* the base, the *smaller* the log value for the same number.
+
+```{r}
+#| label: q1-bases
+log(7000, base = 2)   # base 2  -> largest value
+log(7000)             # natural log (base e ~ 2.718) -> in between
+log10(7000)           # base 10 -> smallest value
+```
+
+Since $e \approx 2.718$ is between 2 and 10, the natural log of 7,000, which is about 8.85, falls between the base-2 log value of 12.77 and the base-10 log value of 3.85. That order makes sense because the larger the base is, the fewer times you need to multiply it to reach the same number.
+
+# Question 2: Multiplication Becomes Addition {#sec-q2}
+
+## Verify the product rule (2.1)
+
+**Prompt:** Using $a = 4$ and $b = 8$ with base 2, compute both sides and confirm they are equal.
+
+The key log property:
+
+$$
+\log_b(a \times c) = \log_b(a) + \log_b(c)
+$$
+
+```{r}
+#| label: q2-verify
+log(4 * 8, base = 2)              # left side: log of the product
+log(4, base = 2) + log(8, base = 2)  # right side: sum of the logs
+```
+
+Both sides equal 5, so the rule checks out. It also makes sense when you think through the numbers: $4 \times 8 = 32 = 2^5$. Separately, $\log_2(4) = 2$ and $\log_2(8) = 3$, and $2 + 3 = 5$. This same property works no matter what base we use, whether it is 2, 10, or $e$.
+
+## Why this makes logistic regression computationally safer (2.2)
+
+**Prompt:** In logistic regression, we multiply many small probabilities together. Explain in one sentence why the log property above makes this computationally safer.
+
+Multiplying a lot of tiny probabilities together, like 0.005 × 0.012 × ..., can make the final number so small that the computer loses precision. Taking the log fixes this by turning that long multiplication problem into addition, which is much more stable.
+
+This connects directly to logistic regression because logistic regression is based on likelihood. Unlike linear regression, which minimizes the sum of squared residuals, logistic regression tries to **maximize the likelihood**. In practice, we usually work with the *log*-likelihood because adding log-probabilities is safer and easier than multiplying a bunch of very small raw probabilities.
+
+# Question 3: Geometric Mean {#sec-q3}
+
+**Prompt:** Customer order values are 10, 20, 80, 40, and a huge outlier, 1,000. (1) Compute the arithmetic mean. (2) Compute the geometric mean. (3) Which better represents the typical customer, and why does the $1,000 order distort the arithmetic mean more?
+
+The geometric mean is found by averaging the values on the log scale and then converting the result back:
+
+$$
+\text{GM} = \exp\!\left(\frac{1}{n}\sum_{i=1}^{n}\ln(x_i)\right)
+$$
+
+```{r}
+#| label: q3-means
+orders <- c(10, 20, 80, 40, 1000)
+
+mean(orders)                # arithmetic mean
+log(orders)                 # look how the outlier gets tamed
+exp(mean(log(orders)))      # geometric mean
+```
+
+::: {.panel-tabset}
+
+## Raw scale
+
+On the raw scale, the $1,000 order is 25 times larger than the next-biggest order, which is $80. Because it is so much bigger than the rest, it dominates the total and pulls the arithmetic mean up to **$230**. That is not very representative because $230 is higher than four out of the five actual order values.
+
+## Log scale
+
+On the log scale, $\ln(1000) \approx 6.9$ and $\ln(80) \approx 4.4$, so the difference is only about 2.5 log units instead of 920 dollars. The outlier still matters, but it does not take over the whole calculation. When we average on the log scale and then exponentiate back, the geometric mean is about **$57**.
+
+
+:::
+
+The geometric mean, which is about $57, does a much better job representing the typical customer because most of the orders are between $10 and $80. If I told a manager that the “average” order was $230, that would be misleading because most customers are not spending anywhere near that amount. The arithmetic mean gets pulled upward because the $1,000 order is so far away from the other values in raw dollars. The geometric mean is less affected because it works through logs, so it treats the data more multiplicatively. That is why geometric means are useful for data that grows or changes by multiplication rather than simple addition, which also connects to odds later in the module.
+
+# Question 4: Log of Zero and the Offset {#sec-q4}
+
+**Prompt:** (1) What happens when you take `log(0)` in R? (2) What is `log(0 + 1)`? (3) Why is adding 1 a safe lower bound?
+
+```{r}
+#| label: q4-logzero
+log(0)
+log(0 + 1)
+```
+
+`log(0)` is undefined — R returns `-Inf`. There's no exponent you can raise a base to and get zero. And `log(1)` equals exactly 0 in every base, since anything to the power 0 is 1.
+
+That's why our Week 2 recipe step was written as:
+
+```{r}
+#| label: q4-recipe-step
+#| eval: false
+step_log(income, avg_order_amount, recency_days, base = 10, offset = 1)
+```
+
+The `offset = 1` means we add 1 to every value before taking the log. This works as a safe lower bound because variables like income, order amounts, and recency days cannot be negative. The lowest possible value is 0, and $\log(0 + 1) = 0$. So adding 1 prevents the log from becoming negative infinity and lets the transformed values start at 0. For larger values, adding 1 barely changes anything, so it does not really affect the overall pattern.
+
+# Question 5: Base Conversion {#sec-q5}
+
+**Prompt:** For an income value of \$49,021: (1) compute the log in base 2, base $e$, and base 10; (2) divide the natural log by the base-10 log — what constant do you get?; (3) after `step_normalize()` is applied in the recipe, does it matter which base was used for `step_log()`? Explain why or why not.
+
+## Three bases, one income
+
+```{r}
+#| label: q5-threebases
+income_value <- 49021
+
+log2(income_value)    # base 2
+log(income_value)     # natural log (base e)
+log10(income_value)   # base 10
+```
+
+The results are summarized in @tbl-bases. Same pattern as @sec-q1: smallest base gives the largest log value.
+
+| Base | R function | Log of \$49,021 |
+|:-----|:-----------|----------------:|
+| 2 | `log2()` | ~15.58 |
+| $e \approx 2.718$ | `log()` | ~10.80 |
+| 10 | `log10()` | ~4.69 |
+
+: Log of the same income under three bases {#tbl-bases}
+
+A quick way to sanity-check the base-10 value is to notice that $49{,}021$ is about $4.9 \times 10^4$. Since that number is in the ten-thousands, the log should be a little above 4, and 4.69 makes sense.
+
+## The constant ratio
+
+```{r}
+#| label: q5-ratio
+log(income_value) / log10(income_value)
+log(10)   # the same constant
+```
+
+Dividing the natural log by the base-10 log gives **2.302585…**, which is exactly $\ln(10)$. This is the change-of-base rule:
+
+$$
+\frac{\ln(x)}{\log_{10}(x)} = \ln(10) \approx 2.3026 \quad \text{for any } x
+$$
+
+And it generalizes — the class extension showed the same logic with base 2:
+
+```{r}
+#| label: q5-ratio-base2
+log2(income_value) / log10(income_value)
+log(10, base = 2)   # log base 2 of 10 — same constant
+```
+
+The ratio between any two bases' logs is always a fixed constant, no matter what value you plug in.
+
+## Why the base doesn't matter after normalization
+
+Because that ratio stays constant, switching log bases just multiplies every logged value by the same constant. Then `step_normalize()` subtracts the mean and divides by the standard deviation, which removes that scaling difference. So after normalization, the model is basically seeing the same pattern no matter which log base was used.
+:
+
+$$
+z = \frac{x - \bar{x}}{s}
+$$
+
+When all the values are multiplied by the same constant, the mean and standard deviation get scaled by that same constant too. Because of that, the constant cancels out when the z-score is calculated. This means the standardized values are **the same no matter which log base was used**. So after `step_normalize()`, the base used in `step_log()` does not make a difference for the model.
+
+# Question 6: Probability vs. Odds {#sec-q6}
+
+**Prompt:** In the mail data, 142 customers responded "Yes" out of 3,000. (1) Compute the probability of responding. (2) Compute the odds of responding. (3) In plain English, what does an odds of 0.05 mean for a marketer trying to interpret campaign response?
+
+```{r}
+#| label: q6-prob-odds
+n_yes <- 142
+n_no  <- 3000 - 142
+n_no
+
+# 1. Probability = yes / total
+p <- n_yes / (n_yes + n_no)
+p
+
+# 2. Odds = yes / no, or equivalently p / (1 - p)
+odds <- n_yes / n_no
+odds
+p / (1 - p)   # same thing
+```
+
+The probability of responding is about **4.73%**, and the odds are about **0.0497**, which we can round to about 0.05. The odds are slightly *larger* than the probability because they use the same numerator, which is the number of “Yes” responses, but a different denominator. Probability divides by the total number of customers, 3,000, while odds divide only by the number of “No” responses, 2,858. Since 2,858 is smaller than 3,000, the odds end up a little bigger.
+
+**Plain English for the marketer:** odds of about 0.05 is basically $1/20$. So for every **1 customer who responds, about 20 customers do not**. If we mail out a batch of catalogs, we should expect around one responder for every 20 non-responders. That “1 yes for every 20 no’s” framing is much easier to understand than just looking at the decimal.
+
+
+# Question 7: Converting Between Probability and Odds {#sec-q7}
+
+**Prompt:** Using the conversion function, find the odds when a customer has (7.1) a 20% chance of responding, (7.2) a 50% chance, (7.3) an 80% chance. (7.4) What pattern do you notice — what happens to odds as probability approaches 1?
+
+The conversion to memorize:
+
+$$
+\text{odds} = \frac{p}{1 - p}
+$$ {#eq-oddsconv}
+
+This works because $p = \frac{\text{yes}}{\text{total}}$ and $1 - p = \frac{\text{no}}{\text{total}}$; divide them and the totals cancel, leaving yes over no — which is the definition of odds. Wrapped as a function:
+
+```{r}
+#| label: q7-function
+prob_to_odds <- function(p) {
+  p / (1 - p)
+}
+```
+
+::: {.panel-tabset}
+
+## 7.1 — 20% chance
+
+```{r}
+prob_to_odds(0.20)
+```
+
+Odds = **0.25** = $1/4$. One success per four failures — for every customer who responds, four don't. You could also say there's a 1-in-4 *ratio* of responders to non-responders (which corresponds to the 1-in-5 = 20% chance we started with).
+
+## 7.2 — 50% chance
+
+```{r}
+prob_to_odds(0.50)
+```
+
+Odds = **1**, exactly even. The numerator and denominator of @eq-oddsconv are identical at $p = 0.5$, so there are as many yeses as no's: one response per one non-response.
+
+## 7.3 — 80% chance
+
+```{r}
+prob_to_odds(0.80)
+```
+
+Odds = **4**, or 4 to 1. Now the successes outnumber the failures: four responses for every one non-response.
+
+:::
+
+## The pattern (7.4)
+
+```{r}
+#| label: q7-pattern
+prob_to_odds(0.99)
+prob_to_odds(0.9999999)
+```
+
+As the probability gets closer to 1, the denominator $(1 - p)$ gets closer to zero. Because of that, the **odds keep growing toward infinity**. When the probability is below 50%, the odds are between 0 and 1. At exactly 50%, the odds equal 1. Once the probability is above 50%, the odds move above 1 and keep climbing toward $\infty$. That uneven scale is the issue the next question is meant to fix.
+
+
+# Question 8: Why Log of Odds? {#sec-q8}
+
+**Prompt:** The video explains that odds are asymmetric — odds against an event range from 0 to 1, while odds in favor range from 1 to infinity. (1) Compute the log of odds for probabilities 0.1, 0.5, and 0.9. (2) Verify that log(odds) at probability 0.50 equals exactly zero — why does this make sense intuitively? (3) What does symmetry around zero mean for modeling?
+
+```{r}
+#| label: q8-logodds
+probs <- c(0.10, 0.50, 0.90)
+odds_vec <- probs / (1 - probs)
+log_odds <- log(odds_vec)
+
+tibble(
+  probability = probs,
+  odds        = odds_vec,
+  log_odds    = log_odds
+)
+```
+
+Raw odds are awkward because all of the “unlikely” outcomes get squeezed into the small range between 0 and 1, while the “likely” outcomes spread out from 1 to infinity. That is the asymmetry. Taking the log fixes that problem really well:
+
+* Probability 0.10 → odds 0.111 → log(odds) **−2.197**
+* Probability 0.50 → odds 1 → log(odds) **exactly 0** because $\log(1) = 0$ in any base
+* Probability 0.90 → odds 9 → log(odds) **+2.197**
+
+The zero at $p = 0.5$ makes sense because 50/50 is the natural middle point. It is where the outcome is equally likely either way, so the evidence does not really favor “yes” or “no.” If odds against something are going to be negative and odds in favor are going to be positive, then the 50/50 point should land at zero. The symmetry also shows up clearly with 10% and 90%. A 10% chance of “yes” means a 90% chance of “no,” so they are opposites of each other, and the log-odds show that as −2.197 and +2.197.
+
+**What symmetry means for modeling:** the log-odds scale runs from $-\infty$ to $+\infty$ and is centered at zero. That gives the model a balanced scale where “less likely” and “more likely” can be treated evenly. Raw odds do not have that kind of natural center, but the log-odds scale does, which is why it works so well for a linear predictor.
+
+# Question 9: The Logit {#sec-q9}
+
+**Prompt:** The video introduces the logit as the log of the odds, central to logistic regression. (1) Using the mail data, compute the overall response rate as a probability. (2) Convert it to log(odds) using the formula. (3) Write R code to convert the model's predicted probability of Yes (`.pred_Yes`) to log(odds).
+
+The one-line definition to remember:
+
+$$
+\text{logit}(p) = \log\!\left(\frac{p}{1 - p}\right)
+$$ {#eq-logit}
+
+## Overall response rate as a probability
+
+```{r}
+#| label: q9-responserate
+p_respond <- mean(responded == "Yes")
+p_respond
+```
+
+The useful trick here is that `responded == "Yes"` creates a logical vector of `TRUE` and `FALSE` values. When we take the mean, R treats `TRUE` as 1 and `FALSE` as 0. So this is really just adding up 142 ones and dividing by 3,000, which gives the proportion of “Yes” responses: about **4.73%**.
+
+## Convert to log(odds)
+
+```{r}
+#| label: q9-convert
+odds_respond <- p_respond / (1 - p_respond)
+odds_respond
+
+log_odds_respond <- log(odds_respond)
+log_odds_respond
+```
+
+Odds of about 0.0497 become a log(odds) of about **−3.00**. Negative, as expected — the response rate is far below 50%, so we're deep in "odds against" territory.
+
+## Converting the model's predictions
+
+In the Week 2 workflow, `augment()` added three columns to the test data: `.pred_class`, `.pred_Yes`, and `.pred_No`, where `.pred_Yes` is each individual customer's predicted probability of responding (and `.pred_class` is just whether that probability crossed the 50% threshold). Applying @eq-logit row by row with `mutate()`:
+
+```{r}
+#| label: q9-preds
+# Example structure matching the augmented test data
+preds <- tibble(
+  customer_id = 1:5,
+  .pred_Yes   = c(0.0443, 0.0121, 0.0876, 0.0302, 0.1540)
+)
+
+preds |>
+  mutate(log_odds = log(.pred_Yes / (1 - .pred_Yes))) |>
+  select(customer_id, .pred_Yes, log_odds)
+```
+
+Every log-odds value comes out negative, which is exactly right — these predicted probabilities are all well under 50%, just like the one we saw in class where a customer's `.pred_Yes` of 0.0443 meant only a 4.4% chance of responding to the catalog.
+
+::: {.callout-important title="Exam takeaway"}
+The chain to know cold: **probability → odds → log(odds)**, i.e., $p \;\rightarrow\; \frac{p}{1-p} \;\rightarrow\; \log\frac{p}{1-p}$. And backwards: logistic regression models the log(odds) as a linear function of the predictors, then converts back to probability at the end. The 50% threshold on `.pred_Yes` is what decides `.pred_class`.
+:::
+
+# Questions Not Yet Reviewed {#sec-remaining}
+
+::: {.callout-note title="Pending the review video"}
+Class time ran out around Question 10, and Professor Jung mentioned he would record the review of the remaining questions and post it as a video. Once that video is available, I'll extend these notes to cover the rest of the quiz questions using the same format as above.
+:::
+
+# Reflection {#sec-reflection}
+
+The thing that finally clicked for me in this module is that odds, log(odds), the geometric mean, and the log-transformed income column in our recipe aren't separate tricks — they're all the same move. Any time data behaves multiplicatively (skewed incomes, chained probabilities, ratios of yes to no), the log converts it into something additive, symmetric, and linear-friendly. That's why the logit sits at the center of logistic regression: it takes a probability trapped between 0 and 1, stretches it onto a scale from $-\infty$ to $+\infty$ centered at zero, and hands the model something it can actually fit a line to.
+
+The other habit I'm taking away is the mental-math sanity checking — splitting numbers into a small part times a power of 10 to estimate logs, or flipping odds like 0.05 into "1 yes per 20 no's." Those quick checks caught the intuition behind every computed answer above, and they're exactly the kind of plain-English translation a marketer needs when someone asks what a model output actually means.
