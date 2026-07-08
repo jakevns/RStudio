@@ -420,3 +420,11 @@ Class time ran out around Question 10, and Professor Jung mentioned he would rec
 The thing that finally clicked for me in this module is that odds, log(odds), the geometric mean, and the log-transformed income column in our recipe aren't separate tricks — they're all the same move. Any time data behaves multiplicatively (skewed incomes, chained probabilities, ratios of yes to no), the log converts it into something additive, symmetric, and linear-friendly. That's why the logit sits at the center of logistic regression: it takes a probability trapped between 0 and 1, stretches it onto a scale from $-\infty$ to $+\infty$ centered at zero, and hands the model something it can actually fit a line to.
 
 The other habit I'm taking away is the mental-math sanity checking — splitting numbers into a small part times a power of 10 to estimate logs, or flipping odds like 0.05 into "1 yes per 20 no's." Those quick checks caught the intuition behind every computed answer above, and they're exactly the kind of plain-English translation a marketer needs when someone asks what a model output actually means.
+
+# Project Links {#sec-links .unnumbered}
+
+::: {.callout-note title="Repository & Published Report" icon="false"}
+**GitHub Repository:** [jakevns/RStudio/M05](https://github.com/jakevns/RStudio/tree/main/M05)
+
+**Published Report (GitHub Pages):** [Evans,Jake — M05 Class Notes](https://jakevns.github.io/RStudio/M05/Evans%2CJake-M05-classnotes.html)
+:::
