@@ -23,7 +23,6 @@ execute:
 
 This report documents my attempt to connect my Shopify practice store, **Jake Bailey Artist**[^1], to Google Merchant Center through Shopify’s Google & YouTube sales channel. The store is a direct-to-consumer art brand that I built across the Week 3–5 Shopify assignments. It includes nine products organized into five collections: original paintings, fine art prints, commissioned pet portraits, artist merchandise, and gift bundles. The store also has a working navigation menu, an About page, a Contact page, and published shipping and return policies.
 
-
 [^1]: Storefront: <https://jake-bailey-artist.myshopify.com/>
 
 ::: callout-note
@@ -32,7 +31,7 @@ This report documents my attempt to connect my Shopify practice store, **Jake Ba
 The main Shopify-to-Merchant-Center connection **did work**. My Google account, Merchant Center account, store requirements check, and terms agreement were all completed successfully. However, the setup also revealed **four major barriers** that would prevent the store from launching Google Shopping Ads right away: 21 product data errors across all 9 products, a paused local inventory sync because of business address limitations, an ineligible YouTube channel, and an inactive Google Ads account.
 
 These issues show that connecting the store is only the first step. A real launch would still require cleaning up the product data, fixing account limitations, and making sure the advertising tools are actually ready to use. The rest of this report focuses on those barriers and what they mean for CPP Farm Store.
-
+:::
 
 # Store Preparation
 
@@ -40,13 +39,11 @@ Before attempting the connection, I confirmed that the store met the basic readi
 
 I also published shipping and return policies using Shopify’s policy templates and customized them for the store (@fig-policy). Since Google looks at these kinds of trust signals when evaluating store credibility, I made sure this step was completed before starting the setup.
 
-
 ![Return and refund policy configured in Shopify settings prior to the connection attempt](img/policy-return-refund.png){#fig-policy}
 
 # Connection Attempt Evidence
 
 I connected the store through the **Google & YouTube sales channel** in the Shopify admin. The main setup was completed successfully. As shown in @fig-setup, all five setup tasks were finished: my Google account, the Google Merchant Center account connection, the online store requirements check, the recommended store setup confirmation, and the terms and conditions agreement.
-
 
 ![Google & YouTube channel setup showing 5 of 5 core tasks completed, including the Merchant Center account connection](img/gmc-setup-complete.png){#fig-setup}
 
@@ -58,7 +55,6 @@ Not every part of the channel setup could be completed. The YouTube Shopping sec
 
 I documented the error and skipped this step because the setup flow allowed me to continue without connecting YouTube Shopping.
 
-
 ![YouTube Shopping setup blocked: the connected channel is not eligible](img/gmc-youtube-ineligible.png){#fig-youtube}
 
 # Product Sync and Product Listing Evidence
@@ -69,7 +65,6 @@ Every product and variant was flagged for a **missing barcode (ISBN, UPC, or GTI
 
 Google also classified some products as apparel, which created extra requirements. The Artist T-Shirt and The Gallery Bundle were each flagged for four additional missing attributes: **Google Color, Size, Age Group, and Gender**.
 
-
 ![Shopify bulk editor showing 21 product data errors: missing GTINs on all products and missing apparel attributes on classified items](img/gmc-product-errors.png){#fig-errors}
 
 This means the products **made it partway into the listing pipeline, but they were not ready to sync**. The connection and feed existed, but none of the products could actually be published in their current state.
@@ -78,7 +73,6 @@ The pattern of errors makes sense for this catalog. Original paintings, commissi
 
 Product sync was also limited at the account level. In the Local Inventory setup (@fig-local), my Google Business Profile connected successfully, but **product sync was paused for all locations** because the only location available was my home address. Since that is not a verifiable retail business location, I paused the sync rather than presenting a residence as a storefront. This also follows the assignment’s instruction not to represent the practice store as an active operating business.
 
-
 ![Local inventory setup: Business Profile connected, but product sync paused for all locations due to the home-address limitation](img/gmc-local-inventory-paused.png){#fig-local}
 
 # Setup Barriers and Warnings
@@ -86,7 +80,7 @@ Product sync was also limited at the account level. In the Local Inventory setup
 The attempt surfaced five distinct categories of barriers, summarized in @tbl-barriers.
 
 | \# | Barrier | Evidence | Severity for a Real Launch |
-|:-------------:|---------------|---------------|---------------------------|
+|:--:|----|----|----|
 | 1 | Missing GTINs/barcodes on all 9 products | @fig-errors | High — blocks product approval until identifiers are provided or products are declared custom goods |
 | 2 | Missing apparel attributes (Color, Size, Age Group, Gender) | @fig-errors | High — Google requires these for apparel category listings |
 | 3 | Business location not verifiable (home address); local sync paused | @fig-local | Medium — blocks local inventory features; core online listings can still work |
@@ -99,25 +93,23 @@ The channel’s Overview page (@fig-overview) supported the same product data is
 
 The Overview page also showed Google Ads as **Inactive**, which is an important reminder that connecting Merchant Center is not the same thing as being fully ready to advertise. The store can be connected, but the product data and ad account still need to be ready before a real campaign could launch.
 
-
 ![Google & YouTube channel Overview: Google Ads inactive, with curated warnings recommending GTINs, richer product attributes, and image improvements](img/gmc-overview-suggestions.png){#fig-overview}
 
 # Fixes Needed Before a Real Launch
 
 For this store — or any real business in a similar position — the following fixes would be required before Google Merchant Center and Google Shopping Ads could be used successfully:
 
-1. **Resolve the GTIN requirement for handmade goods.** One-of-a-kind artwork will not have UPCs, so the right solution is not to make up barcodes. Instead, these products should be marked correctly as custom goods by setting `identifier_exists` to false in the product feed. That tells Google that a GTIN should not be expected. For mass-produced items like the mug, t-shirt, and tote, real GTINs could be used if they are provided by the supplier.
+1.  **Resolve the GTIN requirement for handmade goods.** One-of-a-kind artwork will not have UPCs, so the right solution is not to make up barcodes. Instead, these products should be marked correctly as custom goods by setting `identifier_exists` to false in the product feed. That tells Google that a GTIN should not be expected. For mass-produced items like the mug, t-shirt, and tote, real GTINs could be used if they are provided by the supplier.
 
-2. **Complete apparel attributes.** The Artist T-Shirt and Gallery Bundle need the missing Google fields filled in, including Color, Size, Age Group, and Gender. This is a more straightforward data-entry fix in the bulk editor.
+2.  **Complete apparel attributes.** The Artist T-Shirt and Gallery Bundle need the missing Google fields filled in, including Color, Size, Age Group, and Gender. This is a more straightforward data-entry fix in the bulk editor.
 
-3. **Establish a verifiable business identity.** A real launch would need a business address that is not a residence, a verified Google Business Profile, and ideally a custom domain instead of a `myshopify.com` subdomain. These details help Google evaluate whether the store looks credible and ready for customers.
+3.  **Establish a verifiable business identity.** A real launch would need a business address that is not a residence, a verified Google Business Profile, and ideally a custom domain instead of a `myshopify.com` subdomain. These details help Google evaluate whether the store looks credible and ready for customers.
 
-4. **Activate and fund a Google Ads account.** Connecting Merchant Center only makes the products eligible to be listed. Actually running Shopping Ads would require an active Google Ads account with billing, conversion tracking, and campaign setup.
+4.  **Activate and fund a Google Ads account.** Connecting Merchant Center only makes the products eligible to be listed. Actually running Shopping Ads would require an active Google Ads account with billing, conversion tracking, and campaign setup.
 
-5. **Meet YouTube Shopping eligibility, if needed.** If YouTube Shopping became an important channel for the brand, the YouTube channel would need to meet Google’s shopping program requirements before that feature could be connected.
+5.  **Meet YouTube Shopping eligibility, if needed.** If YouTube Shopping became an important channel for the brand, the YouTube channel would need to meet Google’s shopping program requirements before that feature could be connected.
 
-6. **Strengthen product content.** The store should also improve its product content by using higher-resolution full-product images, adding stronger descriptions with structured attributes, and assigning Google product categories to every item. This would help with both product approval and ad performance.
-
+6.  **Strengthen product content.** The store should also improve its product content by using higher-resolution full-product images, adding stronger descriptions with structured attributes, and assigning Google product categories to every item. This would help with both product approval and ad performance.
 
 # CPP Farm Store Reflection
 
@@ -137,6 +129,6 @@ Finally, the Farm Store should treat advertising as a separate phase. A connecte
 ## Project Links
 
 - **Live Storefront:** <https://jake-bailey-artist.myshopify.com/>
-- **GitHub Page:** <https://github.com/jakevns/RStudio/tree/main/W06-GMC>
-- **GitHub Repo:** <https://jakevns.github.io/RStudio/W06-GMC/Evans%2CJake-OACP-W06-GMC.html>
+- **GitHub Page:** <https://jakevns.github.io/RStudio/W06-GMC/Evans%2CJake-OACP-W06-GMC.html>
+- **GitHub Repo:** <https://github.com/jakevns/RStudio/tree/main/W06-GMC>
 :::
