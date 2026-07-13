@@ -38,7 +38,7 @@ Jake Bailey Artist is a direct-to-consumer art brand that sells original paintin
 I created **five collections** in the Shopify admin, exceeding the minimum requirement of three. @tbl-collections summarizes the assortment structure, and @fig-admin in @sec-screenshots provides evidence from the Shopify admin.
 
 | Collection | Products | Role in the Assortment |
-|------------------|:----------------:|------------------------------------|
+|------------------|:----------------:|-----------------------------------|
 | Original Painting | 1 | One-of-a-kind, high-ticket anchor products |
 | Fine Art Prints | 1 | Accessible entry point to owning the artwork |
 | Pet Portraits | 1 | Commission-based, personalized offering |
@@ -150,6 +150,6 @@ A main menu that matches these collections one-to-one would help first-time onli
 ## Project Links
 
 - **Live Storefront:** <https://jake-bailey-artist.myshopify.com/>
-- **GitHub Page:** <https://jakevns.github.io/RStudio/ITP/assign4/Evans%2CJake-ITP-Assign4.html>
-- **GitHub Repo:** <https://github.com/jakevns/RStudio>
+- **GitHub Page:** <https://jakevns.github.io/RStudio/W06-Collection-Navigation/Evans%2CJake-ITP-Assign4.html>
+- **GitHub Repo:** <https://github.com/jakevns/RStudio/tree/main/W06-Collection-Navigation>
 :::
