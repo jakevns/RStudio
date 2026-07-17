@@ -1,0 +1,19 @@
+/* Extra styling on top of the serif theme + custom.scss */
+
+.reveal h2 {
+  border-bottom: 3px solid #C4820E;
+  padding-bottom: 6px;
+}
+
+.reveal .aside {
+  font-size: 0.55em;
+  color: #666;
+}
+
+/* Reusable emphasis box */
+.reveal .highlight-box {
+  background-color: #f4efe2;
+  border-radius: 10px;
+  padding: 12px 18px;
+  border-left: 6px solid #1E4D2B;
+}

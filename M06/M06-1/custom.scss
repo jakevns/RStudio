@@ -1,0 +1,31 @@
+/*-- scss:defaults --*/
+
+// Cal Poly Pomona-inspired palette layered on top of the serif theme
+$cpp-green: #1E4D2B;
+$cpp-gold:  #C4820E;
+
+$link-color: $cpp-gold;
+$presentation-heading-color: $cpp-green;
+$presentation-title-slide-text-align: left;
+
+/*-- scss:rules --*/
+
+.reveal .slide blockquote {
+  border-left: 5px solid $cpp-gold;
+  padding-left: 0.6em;
+  font-style: italic;
+  color: darken($cpp-gold, 12%);
+}
+
+.reveal .footer {
+  color: $cpp-green;
+  font-size: 0.55em;
+}
+
+.reveal .slide-number {
+  color: $cpp-green;
+}
+
+.reveal .progress {
+  color: $cpp-gold;
+}

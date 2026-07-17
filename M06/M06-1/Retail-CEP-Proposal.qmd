@@ -1,0 +1,279 @@
+---
+title: "Decoding Retail Transactions"
+subtitle: "MSDM CEP Proposal Presentation"
+author: "Jake Evans"
+institute: "IBM 6540, Cal Poly Pomona"
+date: "`r Sys.Date()`"
+format: 
+  revealjs:
+    theme: [serif, custom.scss]
+    width: 1600
+    height: 900
+    footer: "Decoding Retail Transactions — CEP Proposal | Jake Evans"
+    transition: slide
+    transition-speed: default
+    incremental: false
+    toc: true
+    toc-depth: 1
+    toc-title: "Agenda"
+    slide-number: true
+    scrollable: true
+    smaller: true
+    code-fold: false
+    code-overflow: wrap
+    number-sections: false
+    number-depth: 5
+    embed-resources: true
+    css: styles.css
+bibliography: references.bib
+editor: visual
+execute: 
+  echo: true
+  freeze: auto
+---
+
+```{r}
+#| label: setup
+#| echo: false
+#| message: false
+#| warning: false
+library(tidyverse)
+library(knitr)
+
+# Read the Kaggle Retail Sales Dataset if present; otherwise simulate an
+# equivalent sample so the deck renders reproducibly anywhere.
+if (file.exists("retail_sales_dataset.csv")) {
+  sales <- read_csv("retail_sales_dataset.csv", show_col_types = FALSE) |>
+    rename_with(~ str_replace_all(tolower(.x), "[^a-z0-9]+", "_"))
+} else {
+  set.seed(6540)
+  n <- 1000
+  sales <- tibble(
+    transaction_id   = 1:n,
+    date             = sample(seq(as.Date("2023-01-01"),
+                                  as.Date("2023-12-31"), by = "day"),
+                              n, replace = TRUE),
+    customer_id      = paste0("CUST", sprintf("%03d", 1:n)),
+    gender           = sample(c("Female", "Male"), n, replace = TRUE),
+    age              = sample(18:64, n, replace = TRUE),
+    product_category = sample(c("Beauty", "Clothing", "Electronics"),
+                              n, replace = TRUE, prob = c(.30, .35, .35)),
+    quantity         = sample(1:4, n, replace = TRUE),
+    price_per_unit   = sample(c(25, 30, 50, 300, 500), n, replace = TRUE)
+  ) |>
+    mutate(total_amount = quantity * price_per_unit)
+}
+
+# Precomputed values for inline narrative (keeps inline R free of $ and *)
+n_txn      <- nrow(sales)
+date_min   <- format(min(sales$date), "%B %Y")
+date_max   <- format(max(sales$date), "%B %Y")
+avg_txn    <- paste0("$", round(mean(sales$total_amount), 2))
+pct_female <- round(mean(sales$gender == "Female") * 100, 1)
+```
+
+# Introduction {background-color="#ede8d8"}
+
+## The Problem
+
+:::::: columns
+:::: {.column width="55%"}
+Specialty retailers collect transaction logs every day, but most of that data never informs a decision:
+
+::: incremental
+- Promotions are planned on **intuition**, not evidence
+- Marketing spend is spread **evenly** across categories
+- No clear picture of **which customers drive revenue**
+:::
+::::
+
+::: {.column width="45%"}
+> "Without analytics, a transaction log is just a receipt pile."
+
+[The result: budget leaks into segments that were never going to convert.]{.fragment .highlight-red}
+:::
+::::::
+
+::: notes
+Open with the pain point: data exists but is unused. Pause after the quote, then click for the red fragment as the punchline.
+:::
+
+## Analytics Objective
+
+. . .
+
+**One objective, stated plainly:**
+
+. . .
+
+Determine how **product category** and **customer demographics** (age, gender) relate to **transaction value**, so promotional spend can be targeted at the highest-value segments.
+
+. . .
+
+::: aside
+Scope note: this proposal covers one year of point-of-sale transactions from a single specialty retailer.
+:::
+
+## Why It Matters {transition="zoom" transition-speed="slow"}
+
+- Targeted promotion is consistently cheaper than blanket discounting[^1]
+- Category-level insight feeds directly into **inventory** and **retail media** decisions
+- The method generalizes: the same pipeline works for any transactional dataset
+
+[^1]: Blanket discounts erode margin across all segments, including customers who would have purchased at full price.
+
+# Literature Review {background-color="#ede8d8"}
+
+## Theoretical Grounding
+
+::: incremental
+- **Buyer behavior theory** [@howard1969] frames purchase outcomes as a function of buyer characteristics and stimulus (category/price) variables
+- **Market segmentation** [@wedel2000] justifies splitting customers by demographics before modeling response
+- **RFM analysis** [@hughes1994] supports transaction value as a managerially meaningful outcome
+:::
+
+::: notes
+Demographic segmentation is grounded in established theory rather than being an arbitrary choice.
+:::
+
+## Is the Data Adequate?
+
+::::: columns
+::: {.column width="50%"}
+**What the data covers**
+
+- Full year of transactions
+- Demographics on every record
+- Category, quantity, unit price
+:::
+
+::: {.column width="50%"}
+**What it doesn't**
+
+- [No loyalty / repeat-purchase IDs across visits]{.fragment}
+- [No marketing-exposure data]{.fragment}
+- [Single retailer → limited generalizability]{.fragment}
+:::
+:::::
+
+. . .
+
+**Conclusion:** The data is useful for identifying customer segments and analyzing transaction value, but additional information, such as panel data and promotion records, would be needed to make any causal claims.
+
+# Methods {background-color="#ede8d8"}
+
+## Data & Sampling
+
+The dataset is the Kaggle **Retail Sales Dataset**, a point-of-sale extract with `r n_txn` transactions recorded between `r date_min` and `r date_max`. The average transaction value is **`r avg_txn`**, and `r pct_female`% of transactions were made by female customers.[^2]
+
+[^2]: Sample statistics are computed inline from the data, so they update automatically if the dataset changes.
+
+```{r}
+#| label: peek
+#| code-fold: true
+#| code-summary: "Show the import check"
+glimpse(sales)
+```
+
+## Data Wrangling
+
+```{r}
+#| label: wrangle
+#| code-line-numbers: "1|2-3|4-8"
+#| output-location: fragment
+sales_clean <- sales |>
+  mutate(age_group = case_when(age < 30 ~ "18–29",
+                               age < 45 ~ "30–44",
+                               TRUE     ~ "45+")) |>
+  group_by(product_category, age_group) |>
+  summarize(across(c(quantity, total_amount), mean, .names = "avg_{.col}"),
+            n = n(), .groups = "drop")
+head(sales_clean)
+```
+
+::: notes
+Walk through the highlighted lines: start with the pipe, explain how `case_when()` creates the age groups, and then show how `group_by()` and `across()` generate the summary. Click once to reveal the output as a fragment.
+:::
+
+## Sample Characteristics
+
+```{r}
+#| label: tbl-sample
+#| echo: false
+sales |>
+  group_by(product_category) |>
+  summarize(
+    Transactions = n(),
+    `Avg Age` = round(mean(age), 1),
+    `Avg Quantity` = round(mean(quantity), 2),
+    `Avg Transaction ($)` = round(mean(total_amount), 2)
+  ) |>
+  kable(col.names = c("Product Category", "Transactions", "Avg Age",
+                      "Avg Quantity", "Avg Transaction ($)"))
+```
+
+. . .
+
+Electronics transactions are fewer per customer but dominate on value — the first hint that category, not volume, drives revenue.
+
+## Revenue by Category {.smaller}
+
+```{r}
+#| label: fig-revenue
+#| code-fold: true
+#| code-summary: "Show plotting code"
+#| fig-width: 12
+#| fig-height: 5.5
+sales |>
+  mutate(month = floor_date(date, "month")) |>
+  group_by(month, product_category) |>
+  summarize(revenue = sum(total_amount), .groups = "drop") |>
+  ggplot(aes(month, revenue, color = product_category)) +
+  geom_line(linewidth = 1.1) +
+  geom_point(size = 2) +
+  scale_y_continuous(labels = scales::dollar) +
+  scale_color_manual(values = c("#C4820E", "#1E4D2B", "#6b7a8f")) +
+  labs(x = NULL, y = "Monthly revenue",
+       color = "Category",
+       title = "Monthly revenue by product category") +
+  theme_minimal(base_size = 18)
+```
+
+## Measures & Analytics Methods
+
+:::::: columns
+::: {.column width="50%"}
+**Measures**
+
+- *Outcome:* transaction value (`total_amount`)
+- *Predictors:* product category, age group, gender
+- *Controls:* quantity, month (seasonality)
+:::
+
+:::: {.column width="50%"}
+**Methods**
+
+::: incremental
+1.  Descriptive segmentation (tables + visualization)
+2.  Multiple regression on transaction value
+3.  Logistic regression on *high-value transaction* (top quartile) membership
+:::
+::::
+::::::
+
+# Wrap-Up {background-color="#ede8d8"}
+
+## Expected Contribution
+
+- A segment-level map of **where transaction value concentrates**
+- A reproducible Quarto pipeline the retailer can rerun each quarter
+- Evidence-based targeting recommendations for promotional spend
+
+::: notes
+Close by tying back to the objective: one question, answered with data the retailer already owns.
+:::
+
+## References
+
+::: {#refs}
+:::
