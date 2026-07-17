@@ -1,0 +1,186 @@
+---
+title: "M06-Reflection Essay-Advanced Data Wrangling"
+author: "Jake Evans"
+date: today
+format: 
+  html: 
+    theme: cosmo
+    toc: true
+    toc-depth: 4
+    toc-expand: true
+    number-sections: true
+    code-link: true
+    code-fold: show
+    code-tools: true
+    code-overflow: wrap
+    embed-resources: true
+editor: visual
+execute: 
+  freeze: auto
+  message: false
+  warning: false
+---
+
+```{r}
+#| label: setup
+#| echo: false
+library(tidyverse)
+library(knitr)
+```
+
+# Impressions of Reveal.js {#sec-revealjs}
+
+> **Prompt.** After watching the CCIDM workshop on designing presentation slides with Quarto, what is your impression of Reveal.js? What can it do, and how does it compare with PowerPoint?
+
+## My Impression
+
+My honest first impression of Reveal.js is that it makes a presentation feel more like a *rendered product* than a decorated document. Coming from a visual arts background, I usually think of slide design as a very manual process—aligning boxes, adjusting colors, and formatting headings one at a time. Reveal.js completely changes that approach. The design of the entire presentation lives in a theme and a few SCSS variables, while the content stays in plain Markdown. You can change one variable, re-render the file, and every heading in the deck updates at once. It uses the same reproducibility logic I already rely on in Quarto reports, but applies it to presentations.
+
+The workshop demonstrations made the features much easier to understand. The YAML header controls the title, theme, footer, logos, links, slide numbers, transitions, and incremental behavior across the entire deck. Individual slides can still be customized with curly-bracket attributes, such as `{transition="zoom" transition-speed="slow"}` or `{.smaller}`. Reveal.js also supports incremental lists, manual `. . .` pauses for almost any type of content, asides, footnotes, scrollable slides, and multi-column layouts. The code features impressed me the most. You can highlight code lines in sequence, fold code and reveal it only when needed, and use `output-location: fragment` or `slide` so the results appear on click and make it seem like the code is being run live.
+
+From the presenting side, Reveal.js includes tools that PowerPoint does not offer in quite the same way. These include overview mode, a navigation menu, slide zoom, speaker view with notes, live chalkboard annotations, and PDF export. The feature that stood out the most to me was **multiplex**, which allows the presenter’s HTML file to remotely control the audience’s copies of the presentation in their own browsers. Publishing is also simple because the entire deck can be uploaded with one terminal command, `quarto publish quarto-pub file.qmd`. Instead of sending an attachment, the presentation becomes a shareable link that can be opened in any browser.
+
+
+## Strengths and Weaknesses vs. PowerPoint
+
+::: panel-tabset
+### Strengths
+
+* **Reproducibility.** Charts, tables, and even statistics within the text are generated directly from the data each time the presentation is rendered. If the data changes, the numbers on the slides update automatically, which helps prevent copy-and-paste errors.
+
+* **Consistency at scale.** One SCSS file can control the appearance of every heading in the presentation. In PowerPoint, making the same change across a large deck could require editing each slide individually or working through the slide master.
+
+* **Version control.** Because a `.qmd` presentation is stored as plain text, changes are easy to track in Git. This is especially useful for group projects, and my group has already benefited from it while working in shared repositories.
+
+* **Web-native output.** Reveal.js presentations can include working links, embedded HTML widgets, portable single-file output using `embed-resources`, and quick publishing through platforms such as Quarto Pub or GitHub Pages.
+
+* **Presentation tools.** Reveal.js also includes useful features such as overview mode, slide zoom, chalkboard annotations, vertical optional slides, and multiplex remote control. The vertical slides are especially helpful because you can skip them during the main presentation but open them when a question comes up.
+
+### Weaknesses
+
+* **Learning curve.** Reveal.js requires at least some knowledge of SCSS and CSS, so there is no simple “highlight the text and choose a color” option like there is in PowerPoint. The workshop presenters also ran into a few problems during the live demo, including speaker view not working and confusion over the `quarto publish` command, which showed that the platform can be less forgiving.
+
+* **Freeform layout.** PowerPoint is still much faster for highly visual, poster-style layouts. Moving an image a few pixels or experimenting with placement is easy with drag-and-drop tools, while making those same adjustments in code can feel awkward.
+
+* **Collaboration with non-coders.** A PowerPoint file is easier for almost anyone to open, edit, or comment on. A `.qmd` presentation is more difficult to collaborate on when group members are not familiar with Quarto or coding.
+
+* **Fragile extra features.** Some Reveal.js features do not work well together. For example, the chalkboard feature is not compatible with `embed-resources`, and exporting to PDF may require manually adjusting the paper size to match a custom slide ratio.
+
+:::
+
+::: callout-tip
+## My bottom line
+
+For analytics presentations — where the slides *contain* the analysis — Reveal.js is clearly the better tool. For a one-off, design-heavy pitch assembled under time pressure, PowerPoint still wins on speed.
+:::
+
+# My Reveal.js Presentation {#sec-mydeck}
+
+> **Prompt.** Share a link to the Reveal.js presentation you published on the web, describe what it is about, and reflect on what you learned from building it. The deck must include at least one reproducible chart or table.
+
+## Published Link
+
+
+The presentation is published on Quarto Pub:
+**<https://jakevns.github.io/RStudio/M06/M06-1/Retail-CEP-Proposal.html>**
+
+Source files are available in the repository:
+<https://github.com/jakevns/RStudio/tree/main/M06/M06-1>
+
+## What the Presentation Is About
+
+The deck, *Decoding Retail Transactions*, is a proposal presentation for my MSDM Culminating Experience Project. It uses the Kaggle Retail Sales dataset, which is the same transaction-level data my IBM 6540 group is currently working with. The presentation focuses on one main analytics objective: understanding how product category and customer demographics relate to transaction value so promotional spending can be directed toward the highest-value customer segments. The storyline follows the recommended structure, beginning with the introduction and problem statement, followed by a short literature review connecting demographic segmentation to buyer-behavior theory, and ending with a methods section that explains the data, wrangling process, sample characteristics, measures, and planned regression models.
+
+The reproducibility requirement is addressed in three ways. First, the sample-characteristics table is generated directly from the data using `knitr::kable()`. Second, the deck includes a ggplot2 line chart showing monthly revenue by product category. Finally, inline R code pulls the sample size, date range, and average transaction value directly into the written narrative. This means that if the CSV is replaced with an updated version, every number, table, and chart in the presentation will update automatically when the file is re-rendered.
+
+
+## What I Learned
+
+Three things stood out to me once I actually built the deck instead of only watching the workshop:
+
+1. **The YAML acts as the design system.** Setting `width: 1600`, `height: 900`, a footer, and a stacked theme with `theme: [serif, custom.scss]` at the beginning meant I rarely had to style individual slides. The few exceptions, such as adding a zoom transition or using `.smaller`, only required a one-line attribute.
+
+2. **Fragments are useful storytelling tools, not just visual effects.** Using `output-location: fragment` on the wrangling chunk allowed me to walk through the highlighted code first and then reveal the output with a click. That creates a natural presentation rhythm that would be difficult to reproduce in PowerPoint without relying on screenshots or multiple duplicate slides.
+
+3. **Publishing changes the way the presentation is shared.** Running `quarto publish quarto-pub` only took a few seconds and created a link I can easily post in a class discussion or add to my portfolio website.[^1] It made the presentation feel more like a living webpage than a static file.
+
+[^1]: The published HTML also preserves working hyperlinks and citations, which can be lost or become less reliable when exporting a PowerPoint presentation as a PDF.
+
+
+# Three Advanced Wrangling Functions {#sec-functions}
+
+> **Prompt.** From the advanced wrangling lecture, pick three functions from three different categories. For each, explain when to use it and demonstrate it with a coding example and its output.
+
+I selected one function from each of three categories covered in the lecture: **mutating joins** (`left_join()`), **column-wise operations** (`across()`), and **vectorized conditional recoding** (`case_when()`).
+
+## `left_join()` — Mutating Joins
+
+`left_join()` is one of the most useful tools for working with relational data. It is the best choice when you need to add columns from a lookup table to a main table using a shared key while still keeping every row from the main table. When no match is found, the new columns simply contain `NA`. The lecture’s recommendation was straightforward: unless there is a clear reason to use a different join, `left_join()` should usually be the default because an inner join can silently remove unmatched observations.
+
+```{r}
+#| label: tbl-join
+#| tbl-cap: "Left join preserves all rows of x; unmatched keys get NA"
+x <- tribble(
+  ~key, ~val_x,
+     1, "x1",
+     2, "x2",
+     3, "x3"
+)
+y <- tribble(
+  ~key, ~val_y,
+     1, "y1",
+     2, "y2",
+     4, "y3"
+)
+
+left_join(x, y, by = "key") |> kable()
+```
+
+As @tbl-join shows, keys 1 and 2 receive the matching `val_y` values, while key 3 remains in the table with an `NA` because there is no match in `y`. Key 4 from `y` is left out because the left table is treated as the main table. In my CEP project, this is similar to using a product ID to add product details from a separate master table to each transaction.
+
+## `across()` — Column-wise Operations
+
+`across()` lets you apply the same function to multiple columns at once inside `summarize()` or `mutate()`, which avoids writing the same code repeatedly. It is especially useful when several columns need the same summary or transformation and can be combined with tidy-select helpers such as `where(is.numeric)`.
+
+
+```{r}
+#| label: tbl-across
+#| tbl-cap: "One across() call summarizes every numeric column in starwars"
+starwars |>
+  summarize(across(where(is.numeric),
+                   list(median = ~ median(.x, na.rm = TRUE),
+                        mean   = ~ mean(.x, na.rm = TRUE)),
+                   .names = "{.col}_{.fn}")) |>
+  kable(digits = 1)
+```
+
+@tbl-across calculates the median and mean for every numeric column in a single statement, while `.names` controls how the new columns are labeled. Without `across()`, the same result would require six separate arguments inside `summarize()`, and the code would need to be updated manually whenever another numeric column was added.
+
+## `case_when()` — Vectorized Conditional Recoding
+
+`case_when()` provides a cleaner alternative to stacking several `if_else()` statements. It works through a list of condition-and-value pairs in order, starting with the most specific condition and moving toward the most general. It is especially useful inside `mutate()` when creating categories from more complex rules, such as dividing a continuous variable into groups.
+
+
+```{r}
+#| label: tbl-casewhen
+#| tbl-cap: "Binning height into categories with case_when() and quantile()"
+starwars |>
+  filter(!is.na(height)) |>
+  mutate(height_cat = case_when(
+    height >= quantile(height, 0.75) ~ "Tall",
+    height <= quantile(height, 0.25) ~ "Short",
+    TRUE                             ~ "Average"
+  )) |>
+  count(height_cat, name = "characters") |>
+  kable()
+```
+
+As @tbl-casewhen shows, combining `case_when()` with `quantile()` allows the cutoffs to adjust automatically based on the data instead of using fixed values. I used this same approach in my CEP deck to create age groups. The main thing to remember from the lecture is that order matters: the most specific condition should come first, while `TRUE ~ ...` serves as the final catch-all or “else” condition.
+
+
+::: callout-note
+## Why these three
+
+Together, these functions cover the full data-wrangling process: `left_join()` combines information from related tables, `across()` summarizes multiple columns efficiently, and `case_when()` creates the categorical variables needed for analysis. I used all three in the wrangling section of my published CEP presentation (@sec-mydeck).
+
+:::
