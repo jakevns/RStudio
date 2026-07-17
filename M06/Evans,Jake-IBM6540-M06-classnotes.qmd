@@ -816,3 +816,12 @@ A consolidated checklist of the concepts the lecture emphasized as exam-relevant
 ::: {.callout-tip title="The one-sentence synthesis"}
 Logs make odds symmetric, odds ratios make group comparisons multiplicative and scale-free, and logistic regression stitches it all together by modeling the log(odds) as a linear equation whose coefficients *are* log(odds ratios) — then converts back to probability through the sigmoid.
 :::
+
+---
+
+# Links {.unnumbered}
+
+::: {.callout-note title="Repository & Published Report" icon="false"}
+- **GitHub Repo (M06 folder):** <https://github.com/jakevns/RStudio/tree/main/M06>
+- **Published HTML Report:** <https://jakevns.github.io/RStudio/M06/Evans%2CJake-IBM6540-M06-classnotes.html>
+:::
