@@ -31,28 +31,30 @@ This document responds to each of the W02 reflection prompts in order. The origi
 >     2.  What does the workflow look like when you use tidymodels for machine learning?
 >     3.  What is MLOps in the Machine Learning workflow? How does the {[vetiver](https://vetiver.posit.co/get-started/)} package do for MLOps?
 
-The presentation by Julia Silge and Max Kuhn[^talk] focused on a modern approach to machine learning in R using the `tidymodels` ecosystem. One thing that stood out to me was that the talk was less about machine learning algorithms themselves and more about the overall process of building reliable models. The presenters organized the talk around three goals for tidymodels: making the modeling process more ergonomic, more effective, and safer. Using a Spotify dataset as an example, the presenters showed that a large portion of machine learning work happens before the model is ever trained. Tasks such as cleaning data, creating new features, and preparing variables often take more time than fitting the model itself. This is where tidymodels helps by organizing preprocessing, modeling, and evaluation into a consistent workflow. I also found it interesting that Max Kuhn explained how `tidymodels` grew out of lessons learned from developing `caret`. Rather than continuing to expand a package that was not designed for modern machine learning workflows, the team built a new ecosystem that is easier to extend and maintain. The presentation concluded with an introduction to `vetiver`, which helps move trained models into production, and a reminder that even a model with excellent training results can fail if the workflow is not set up correctly.
+The presentation by Julia Silge and Max Kuhn[^1] focused on a modern approach to machine learning in R using the `tidymodels` ecosystem. One thing that stood out to me was that the talk was less about machine learning algorithms themselves and more about the overall process of building reliable models. The presenters organized the talk around three goals for tidymodels: making the modeling process more ergonomic, more effective, and safer. Using a Spotify dataset as an example, the presenters showed that a large portion of machine learning work happens before the model is ever trained. Tasks such as cleaning data, creating new features, and preparing variables often take more time than fitting the model itself. This is where tidymodels helps by organizing preprocessing, modeling, and evaluation into a consistent workflow. I also found it interesting that Max Kuhn explained how `tidymodels` grew out of lessons learned from developing `caret`. Rather than continuing to expand a package that was not designed for modern machine learning workflows, the team built a new ecosystem that is easier to extend and maintain. The presentation concluded with an introduction to `vetiver`, which helps move trained models into production, and a reminder that even a model with excellent training results can fail if the workflow is not set up correctly.
+
+[^1]: Silge, J., & Kuhn, M. (2022). *Good Practices for Applied Machine Learning* \[Conference keynote\]. posit::conf(2022).
 
 What I learned about `tidymodels` is that it is not a single package but a collection of packages that work together using a common design philosophy. Instead of trying to do everything through one large function, each package focuses on a specific part of the machine learning process. This makes the workflow more organized and easier to understand once the terminology becomes familiar.
 
 |   | caret | tidymodels |
-|------------------------|------------------------|------------------------|
+|----|----|----|
 | Built | 2005, before R had namespaces | Built using modern tidyverse design principles |
 | Interface | One `train()` function with many arguments | Several focused packages, each with a specific role |
 | Extending it | More difficult to expand | Designed to support community extensions and new tools |
 
-: caret vs. tidymodels {#tbl-caret}
+: caret vs. tidymodels
 
 The biggest strength of `tidymodels` is consistency. Once you learn the workflow, you can switch between different model types without learning completely new syntax. The recipe and workflow structure also helps reduce mistakes by keeping preprocessing steps tied directly to the model training process. The main weakness is that it can feel more complicated than necessary for simple analyses. There is also a learning curve because users need to become familiar with concepts such as recipes, workflows, tuning, and resampling before the benefits become obvious.
 
 A typical `tidymodels` workflow looks like this:
 
-1. Split the data into training and testing sets.
-2. Create a `recipe()` to define preprocessing steps.
-3. Define a model using `parsnip`.
-4. Combine the recipe and model into a `workflow()`.
-5. Train and tune the model using resampling methods.
-6. Evaluate performance and test the final model on unseen data.
+1.  Split the data into training and testing sets.
+2.  Create a `recipe()` to define preprocessing steps.
+3.  Define a model using `parsnip`.
+4.  Combine the recipe and model into a `workflow()`.
+5.  Train and tune the model using resampling methods.
+6.  Evaluate performance and test the final model on unseen data.
 
 MLOps refers to the processes used to deploy, maintain, and monitor machine learning models after they have been trained. This was a new concept for me because I had previously thought of machine learning as ending once a model was built. The `vetiver` package helps bridge that gap by packaging a trained model together with the information needed to reproduce predictions consistently. It can then be deployed as an API, making it easier for applications, dashboards, or other users to access the model. From a digital marketing perspective, I could see this being useful for deploying predictive models while ensuring that the underlying model remains documented, reproducible, and easier to maintain over time.
 
@@ -150,7 +152,7 @@ augment(fit_simple) |>
   theme_minimal()
 ```
 
-The single-predictor model shows that vehicle weight is a strong predictor of fuel economy. The model explains about 75% of the variation in `mpg` (R² = 0.753), and the coefficient for `wt` is highly significant (p < .001). Looking at @fig-resid-simple, the residuals are centered around zero, but they do not form a perfectly random pattern. There appears to be a slight curve, with some of the lightest and heaviest vehicles falling above the zero line while several mid-weight vehicles fall below it. The spread of the residuals remains fairly consistent across the fitted values, so there is not strong evidence of heteroskedasticity. Ideally, a residual plot should look like a random horizontal band around zero with no obvious patterns or changes in spread. When patterns such as curves appear, it suggests that the model may be missing important relationships in the data.
+The single-predictor model shows that vehicle weight is a strong predictor of fuel economy. The model explains about 75% of the variation in `mpg` (R² = 0.753), and the coefficient for `wt` is highly significant (p \< .001). Looking at @fig-resid-simple, the residuals are centered around zero, but they do not form a perfectly random pattern. There appears to be a slight curve, with some of the lightest and heaviest vehicles falling above the zero line while several mid-weight vehicles fall below it. The spread of the residuals remains fairly consistent across the fitted values, so there is not strong evidence of heteroskedasticity. Ideally, a residual plot should look like a random horizontal band around zero with no obvious patterns or changes in spread. When patterns such as curves appear, it suggests that the model may be missing important relationships in the data.
 
 ```{r}
 #| label: fit-extended
@@ -269,5 +271,3 @@ After adding `num_complaints` and `last_login_days`, the model changes very litt
 ::: callout-note
 This is not a modeling error. The dataset was intentionally created so that `monthly_spend` is essentially random noise and unrelated to the other predictors. Because there is no true relationship in the underlying data-generating process, the regression model correctly finds little to no predictive power.
 :::
-
-[^talk]: Silge, J., & Kuhn, M. (2022). *Good Practices for Applied Machine Learning* [Conference keynote]. posit::conf(2022).

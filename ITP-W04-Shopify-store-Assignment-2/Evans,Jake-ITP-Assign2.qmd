@@ -62,7 +62,7 @@ This customer is comfortable with buying art online, responds well to behind the
 The store is built around five main product categories. Together, these categories create a clear pricing ladder, allowing customers to enter at both lower price points with merchandise or prints while simoultaneously offering high value original alternatives that are custom commissions.
 
 | \#  | Collection              | Example Products                   | Price Range |
-|------------------|------------------|------------------|------------------|
+|-----|-------------------------|------------------------------------|-------------|
 | 1   | **Fine Art Prints**     | Serene Abyss – Fine Art Print      | \$75        |
 | 2   | **Original Paintings**  | Original Painting (S/M/L)          | \$300–\$700 |
 | 3   | **Pet Portraits**       | Custom Pet Portrait Commission     | \$150–\$350 |

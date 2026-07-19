@@ -1,0 +1,214 @@
+---
+title: "W06 Reflection Essay: Introduction to Positron"
+author: "Jake"
+date: '`r format(Sys.time())`'
+format:
+  html:
+    toc: true
+    toc-depth: 4
+    toc-expand: 2
+    number-sections: true
+    code-link: true
+    code-fold: true
+    code-tools: true
+    code-overflow: wrap
+    embed-resources: true
+    theme: sandstone
+    highlight-style: github
+    smooth-scroll: true
+editor: visual
+execute:
+  freeze: auto
+---
+
+## Introduction
+
+This report is my reflection on the W06 module, *Introduction to Positron*. I've copied each prompt from the assignment directly below in a blockquote, with my response immediately underneath it, organized into sections so it's easy to follow which response answers which prompt.
+
+# Setting Up the Project {#sec-setup}
+
+> Start a new project and Quarto file (.qmd) inside Positron. Create a folder for this workshop on your hard drive... Organize your file structure... Start a new project by opening the folder you created above... Start a qmd file and save the file appropriately... Add the YAML header.
+
+To get this set up, I worked through the following steps:
+
+1.  Created an `Intro-Positron` folder inside my course folder on my hard drive, using Windows Explorer to keep my file structure organized the same way I've done for previous assignments.
+2.  Opened that folder directly in Positron rather than going through a separate "New Project" wizard.
+3.  Started a new `.qmd` file and saved it inside the project folder using the naming convention from the syllabus.
+4.  Added the YAML header at the top of the file, matching the structure shown in the assignment (visible in the source of this document).
+
+::: callout-note
+## Workspaces vs. Projects
+
+One thing that tripped me up at first: Positron doesn't *require* an `.Rproj` file the way RStudio does. Opening a folder is enough to set the working directory and get project-style behavior — Positron calls this a **workspace**. RStudio-style project files still work if you want them, but they're optional rather than the default way of organizing things.[^1]
+:::
+
+[^1]: This is one of the more subtle differences from RStudio, where the `.Rproj` file is essentially mandatory for project-based workflows.
+
+Two interface ideas took a bit of adjusting coming from RStudio: the **Activity Bar** (the row of icons down the left edge) and the **Primary Sidebar**, which changes contents depending on which Activity Bar icon is selected. Together they absorb several things that used to be separate RStudio panes — Explorer covers the old Files pane plus a document outline, Search replaces *Edit \> Find in Files*, and Source Control replaces the Git pane with noticeably more Git commands exposed directly in the UI. There's also a Test Explorer for running package tests, which has no RStudio equivalent at all.
+
+The bigger habit change is leaning on the **Command Palette** (`Ctrl/Cmd+Shift+P`) instead of hunting for a labeled button. RStudio has one too, but it's easy to never discover it; in Positron it's meant to be the default first move for almost anything — running code, rendering a document, changing a setting. So when a familiar RStudio pane seems to be missing (the Build pane for package development, for example), the underlying actions like Check, Document, and Load All are usually still there as Command Palette commands, just relocated rather than removed.
+
+# Quarto & HTML Features Used in This Report {#sec-features}
+
+Per the assignment, here's a quick rundown of the formatting and Quarto features built into this document, beyond the obvious headings, bold/italic text formatting, and bullet/numbered lists used throughout:
+
+| Feature | Where It Shows Up |
+|----|----|
+| Table of contents (`toc`, `toc-depth`, `toc-expand`) | Left-hand sidebar of the rendered HTML |
+| Section numbering | `number-sections: true` in the YAML — visible on every heading |
+| Self-contained output | `embed-resources: true` — the HTML is a single file, no external assets |
+| HTML theme | `sandstone` Bootswatch theme + `github` syntax highlighting |
+| Callout blocks | Note, tip, important, and warning boxes throughout |
+| Cross-referencing | @sec-positron-rstudio, @fig-mtcars-demo, @tbl-ai-options |
+| Footnotes | See footnote 1 above, and footnote 2 in @sec-ai-tools |
+| Panel tabset | Used in @sec-positron-rstudio for the side-by-side comparison |
+| Hiding code / code-fold | Code chunks below default to folded/collapsed |
+| Code overflow | `code-overflow: wrap` at the document level |
+| Code tools | The `</> Code` dropdown in the top-right of the rendered page |
+
+::: callout-tip
+## Why `embed-resources` instead of plain `self-contained`
+
+`self-contained` is the older option; `embed-resources: true` is the current Quarto equivalent and does the same job — it bundles CSS, JS, and images into one HTML file so it's easy to submit and share without a folder of dependencies.
+:::
+
+A quick code-overflow demo — this line is intentionally long so you can see how the wrap setting handles it instead of forcing a horizontal scrollbar:
+
+``` r
+long_example <- "This is a deliberately long string just to demonstrate how code-overflow: wrap keeps long lines readable instead of cutting them off or forcing a scrollbar."
+```
+
+# Essay Prompts {#sec-essay}
+
+## Positron vs. RStudio: First Impressions {#sec-positron-rstudio}
+
+> Based on what you learned from Step 1 and Step 3, what do you like about Positron compared with RStudio?
+
+::: panel-tabset
+## What I Like About Positron
+
+- Native, first-class support for both R *and* Python in the same window. In Step 3's demo, a Python `.qmd` and an R `.qmd` were opened side by side, each keeping its own running interpreter, and switching between R 4.4 and two different Python versions happened without restarting anything.
+- The Data Explorer goes beyond RStudio's `View()` — sortable/filterable columns, a summary panel with mini histograms and missing-data percentages per column, and "ephemeral filters" that preview a subset without touching the underlying data. The standout feature is **convert to code**: filter and sort by clicking, then turn that into actual reproducible code with one button instead of retyping it by hand.
+- The Plots pane has more going on than I expected — a visual history you can step back through, a one-click dark-mode filter, and exporting at custom dimensions or straight to the clipboard, all demoed directly in Step 3.
+- It's built on the same open-source core as VS Code, so the extension marketplace carries over directly. One example from the EDA tutorial: **Air**, a dedicated R code formatter with a format-on-save option, which doesn't really have an RStudio equivalent.
+- Signing into an AI provider felt close to frictionless — in the Step 1 demo, enabling GitHub Copilot was just generating an auth code inside Positron, pasting it into a browser tab, and authorizing, with no separate plugin install required (more in @sec-ai-tools).
+
+## What I Still Miss From RStudio
+
+- RStudio's Environment pane feels more immediate — years of muscle memory make object previews there feel instant, where Positron's Variables pane works the same way in principle but still feels a half-step less familiar.
+- Some RStudio panes don't carry over as dedicated UI. There's no Build pane for package development, for instance — the underlying actions (Check, Document, Load All) are still there, just moved into the Command Palette instead of a labeled button, which takes some relearning (see @sec-setup).
+- Positron doesn't automatically reload a saved `.RData` workspace the way RStudio does by default, so old habits around saved sessions need adjusting.
+:::
+
+Here's a small example of the kind of plot I mean — quick to make in either IDE, but the experience of *viewing* it differs slightly between the two Plots panes:
+
+```{r}
+#| label: fig-mtcars-demo
+#| fig-cap: "A quick ggplot2 scatterplot, rendered in Positron's Plots pane"
+#| code-fold: true
+#| warning: false
+library(ggplot2)
+ggplot(mtcars, aes(x = wt, y = mpg, color = factor(cyl))) +
+  geom_point(size = 3) +
+  labs(
+    title = "Fuel Efficiency vs. Weight",
+    x = "Weight (1000 lbs)",
+    y = "Miles per Gallon",
+    color = "Cylinders"
+  ) +
+  theme_minimal()
+```
+
+Overall, @fig-mtcars-demo is a simple example, but it's representative of the day-to-day experience: Positron isn't dramatically *better* for basic plotting, it's just laid out differently — and the bigger wins show up in data wrangling and multi-language projects rather than in plotting itself.
+
+## Ways to Use AI Inside Positron {#sec-ai-tools}
+
+> In Step 4, the video demonstrates how you can use AI. Describe the various ways you can use AI inside Positron. Some are free while others are not.
+
+Positron's AI features actually come as two distinct tools, and the Step 4 video was specific about when to reach for which one.
+
+**Positron Assistant** lives in the sidebar and works in three modes: Ask, for general questions; Edit, for collaborative changes to existing code; and Agent, for autonomous multi-step tasks. It follows a "bring your own LLM" philosophy — you connect Anthropic, GitHub Copilot, AWS Bedrock, OpenAI, or a few others, and Posit's documentation is explicit that it doesn't track or store your prompts beyond whichever provider you pick. What makes it specifically useful for data science, rather than just a generic coding assistant, is that it can already see your open scripts, loaded variables, recent plots, and console output. In the Step 4 demo, a typo'd object name and a missing-quotes error were both fixed just by typing "help me fix the error" — no copying the error message in, since the assistant already had the console output as context.
+
+**Databot** is a separate extension built specifically for fast exploratory data analysis rather than general coding. It runs on what Posit calls the WEAR loop: Write code, Execute it, Analyze the result, then Regroup with a few suggested next steps to pick from or override. In the Step 4 demo, Databot was asked to merge five years of separate CSV files; it actually hit real formatting inconsistencies across the files and needed a couple of retries before succeeding, then surfaced a GDP-to-happiness correlation and, when pushed on a specific outlier pattern, pulled in general world knowledge about social trust and personal freedom that wasn't anywhere in the dataset itself. A `/report` command at the end exported the whole exploration into a new Quarto document automatically.
+
+::: callout-warning
+## Worth knowing before turning this on
+
+Databot can be set to "allow always," which lets it write *and run* R or Python code on your behalf without asking before each step. That's faster, but it's also the one place in this AI toolkit where you can lose the "review before it runs" habit that makes the rest of Positron's AI features feel safe.
+:::
+
+::: callout-note
+## Still Moving Fast
+
+These two tools are already converging — Positron Assistant and Databot are being merged into a single "Posit Assistant," currently in preview as of Positron 2026.04.0 and targeting general availability around Q3 2026. So the two-tool split described in the Step 4 video looks like a temporary state rather than the long-term design.[^2]
+:::
+
+[^2]: Both tools are explicitly preview features, so behavior and provider support are still changing release to release.
+
+| Provider | What It's Used For | Cost |
+|----|----|----|
+| GitHub Copilot (Free tier) | Inline code completions, limited chat | Free with any GitHub account |
+| GitHub Copilot Pro (Student) | Completions + chat + agent mode, higher usage limits | Free through GitHub Education (Student Developer Pack) |
+| Anthropic Claude | Chat and agent mode — multi-step refactors, debugging | Requires your own paid account/API access |
+| Posit AI | Chat and completions, Posit-hosted | Free with a Posit sign-in |
+| OpenAI / Amazon Bedrock / Snowflake Cortex | Chat and completions | Bring your own paid API key |
+
+: AI model providers available inside Positron Assistant
+
+As shown in @tbl-ai-options, the free entry point is GitHub Copilot's free tier — it works the moment you sign into GitHub inside Positron, no application required. The bigger upgrade (full chat, agent mode, and higher request limits) comes from GitHub Education's free Copilot Pro for verified students, which is the option this module recommends.[^3]
+
+[^3]: Worth not confusing with **Positron Pro** — a separate paid tier of the IDE itself, available through Posit Workbench, that adds enterprise features like managed cloud credentials and audited compute jobs. It's unrelated to Copilot's free/Pro distinction.
+
+## AI Tools I've Set Up {#sec-ai-setup}
+
+> Which AI tools have you installed or set up? Which AI tools did you find beneficial for you?
+
+::: callout-note
+So far, the AI tool I've actually gotten **set up** is GitHub Copilot, through the GitHub Education Student Developer Pack — see the approval screenshot in @sec-copilot-education. I haven't connected it inside Positron's Assistant panel itself yet.
+
+The AI tool I've actually **used hands-on** throughout this course, including for putting this very report together, is **Claude** (Anthropic's assistant) — through its standalone chat interface rather than Positron's built-in integration. That's the tool I'm reflecting on in @sec-reflection.
+:::
+
+## GitHub Copilot Education Application {#sec-copilot-education}
+
+> I strongly recommend using GitHub Copilot, which is free if you apply for an education account. Apply for it and take a screenshot showing you were accepted into the education program.
+
+::: callout-tip
+## Update: Approved
+
+I applied through GitHub Education and my academic status was approved (@fig-copilot-approval). GitHub holds new approvals for 72 hours before Student Developer Pack benefits — including Copilot — actually unlock, so I'm in that waiting window as of this writing rather than holding active Copilot access yet.
+:::
+
+![GitHub Education approval confirmation — academic status approved, benefits pending the standard 72-hour activation window](images/copilot-education-approval.png){#fig-copilot-approval fig-alt="Screenshot of GitHub Education Benefits page showing an approved student application, with a note that benefits including Copilot will become available after 72 hours of approval"}
+
+## Helpful or Distracting? {#sec-reflection}
+
+> Play with it and do you find it helpful or distracting? Please elaborate.
+
+The honest answer is that I haven't used GitHub Copilot inside Positron itself yet — my GitHub Education application is approved, but Copilot access doesn't actually unlock until 72 hours after approval (@sec-copilot-education), so I'm still in that waiting window. The AI tool I've actually used hands-on for this course, including putting this report together, has been **Claude**.
+
+It's been helpful rather than distracting, and the main reason is how I used it: instead of asking it to write a reflection from nothing, I fed it the actual video transcripts and the official Positron documentation, then had it organize what I'd actually watched into the Quarto structure this assignment needed. That kept it closer to research assistance than to having an AI do the assignment for me. A concrete example — an early draft claimed Positron's Plots pane didn't have history navigation, based on a general blog post. Once I supplied the real video transcript, that turned out to be wrong, and the draft got corrected. That back-and-forth, where I supplied source material and caught errors, is what made the process feel more like assisted research than outsourced thinking. The parts that needed to stay genuinely mine were the personal reflection pieces — what I actually like about Positron, what I actually installed, whether I actually found something useful — since none of that can come from an AI assistant on my behalf.
+
+I'd like to do a real side-by-side comparison once I try GitHub Copilot's completions directly inside Positron, since that's a different kind of AI assistance (autocomplete-while-typing) than the conversational research style I used Claude for here.
+
+## Publishing to GitHub Pages
+
+> Publish this report to GitHub Pages and provide a URL to the GitHub Pages for the report.
+
+Since this project folder is already a Git repo, the fastest path is Quarto's built-in publish command, run from the terminal inside Positron:
+
+``` bash
+quarto publish gh-pages "W06-Reflection-Essay-Introduction-to-Positron.qmd"
+```
+
+This renders the document, pushes it to a `gh-pages` branch on the repo, and prints the live URL when it finishes. If you'd rather do it manually: render to HTML, copy it into a `docs/` folder, push to GitHub, then enable Pages in the repo's **Settings → Pages** and point it at `/docs`.
+
+::: callout-important
+## ACTION NEEDED before you submit
+
+Once published, replace this line with your actual link: **GitHub Pages URL: \[paste here\]**
+:::
+
+## Closing Thoughts
+
+Positron feels like Posit's bet on where data science tooling is heading — multi-language, AI-assisted, and built on a more actively-developed foundation than RStudio. It's not a strict upgrade yet (a few RStudio conveniences are still missing, and even Positron's own AI tools are mid-merge as Databot and Positron Assistant become one thing), but the data explorer, the plot history, and the low-friction AI integration make it worth knowing well, especially this early while the tooling is still evolving fast.

@@ -35,7 +35,7 @@ This assignment is **to learn and practice only**, it does not involve any real 
 
 The following Shopify Academy modules were completed as part of this assignment:
 
-::::: panel-tabset
+:::: panel-tabset
 ![Shopify Admin Guided Tour — Quiz Completion (88%, 8/9 correct)](screenshot_lessonscompleted.png){#fig-quiz fig-align="center"}
 
 ### Introduction to Shopify
@@ -137,15 +137,16 @@ The following screenshots document my hands-on exploration of the `cpp-farm-stor
 
 The development store came pre-loaded with snowboarding equipment products and vendor data, which made it easy to explore product management, metafield definitions, and inventory settings in a realistic context.
 :::
+::::
 
-:::
+[^1]: One question regarding domain setup options was missed; the lesson covered connecting third-party domains and buying through Shopify as the two primary options.
 
 # Feature Reflection {#sec-features}
 
 The following five Shopify features are particularly important for online retailing.
 
 | Feature | Primary Value | Admin Location |
-|------------------------|------------------------|------------------------|
+|----|----|----|
 | Products & Variants | Core catalog management | Products |
 | Collections | Product discovery & organization | Products → Collections |
 | Inventory Management | Stock control & oversell prevention | Products → Inventory |
@@ -196,6 +197,5 @@ Shopify's tools could make the store easier to manage and promote with collectio
 #| code-summary: "Show session info"
 sessionInfo()
 ```
-:::::
 
-[^1]: One question regarding domain setup options was missed; the lesson covered connecting third-party domains and buying through Shopify as the two primary options.
+:::::

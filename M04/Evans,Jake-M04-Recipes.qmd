@@ -44,7 +44,7 @@ Each prompt below is reproduced verbatim from the source `.qmd` file, immediatel
 This quiz covers four StatQuest videos that help build the foundation for logistic regression, which is the model we used in the Week 2 notebook.
 
 | Step | Video | Link |
-|-----------------------|--------------------------|-----------------------|
+|----|----|----|
 | 1-1 | Logs (Logarithms), Clearly Explained!!! | <https://www.youtube.com/watch?v=VSi0Z04fWj0> |
 | 1-2 | Odds and Log(Odds), Clearly Explained!!! | <https://www.youtube.com/watch?v=ARfXDSkQf1Y> |
 | 1-3 | Odds Ratios and Log(Odds Ratios), Clearly Explained!!! | <https://www.youtube.com/watch?v=8nm0G-1uJzA> |
@@ -1112,7 +1112,7 @@ This is why `customer_id` needs to be marked as an ID variable instead of a pred
 # Summary {.unnumbered}
 
 | Section | Coverage |
-|------------------------------------|------------------------------------|
+|----|----|
 | Video Quiz (Q1--Q23) | Logs -\> Odds -\> Log(Odds) -\> Odds Ratios -\> Logistic Regression |
 | Log Assignments (L.1--L.5) | Dollar-to-log conversions, geometric mean/SD, base-10 vs. natural log |
 | Exercise 3.1 | Effect of split proportion on training/test size and response rate |
