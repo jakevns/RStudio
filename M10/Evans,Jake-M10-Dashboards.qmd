@@ -605,3 +605,5 @@ The Shiny app should be deployed to shinyapps.io using the `app.R` and `Retail_s
 ## Clickable URL of the Shiny App
 
 [https://o7gye8-jake-evans.shinyapps.io/discount-explorer/](https://o7gye8-jake-evans.shinyapps.io/discount-explorer/)
+
+*A live version of this report is also available on [GitHub Pages](https://jakevns.github.io/RStudio/M10/Evans,Jake-M10-Dashboards.html).*
