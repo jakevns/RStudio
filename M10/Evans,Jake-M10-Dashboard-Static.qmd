@@ -1,0 +1,256 @@
+---
+title: "Retail Seasonality & Timing Dashboard"
+subtitle: "When Do Customers Buy? A Seasonal Analysis of Retail Sales"
+author: "Jake Evans"
+date: today
+format:
+  dashboard:
+    theme: cosmo
+    embed-resources: true
+    orientation: columns
+    nav-buttons:
+      - icon: github
+        href: https://github.com/jakevns/RStudio
+        aria-label: GitHub repository
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{r}
+#| label: setup
+
+library(tidyverse)
+library(lubridate)
+library(scales)
+library(gt)
+
+sales <- read_csv("data/Retail_sales.csv", show_col_types = FALSE) |>
+  rename(
+    store_id         = `Store ID`,
+    product_id       = `Product ID`,
+    date             = Date,
+    units_sold       = `Units Sold`,
+    revenue          = `Sales Revenue (USD)`,
+    discount_pct     = `Discount Percentage`,
+    marketing_spend  = `Marketing Spend (USD)`,
+    store_location   = `Store Location`,
+    category         = `Product Category`,
+    day_of_week      = `Day of the Week`,
+    holiday          = `Holiday Effect`
+  ) |>
+  mutate(
+    date        = as_date(date),
+    month       = month(date, label = TRUE, abbr = TRUE),
+    year        = year(date),
+    day_of_week = factor(
+      day_of_week,
+      levels = c("Monday", "Tuesday", "Wednesday", "Thursday",
+                 "Friday", "Saturday", "Sunday")
+    )
+  )
+
+gold_green <- c("#1B4332", "#2C5F2D", "#52796F", "#84A98C", "#CAD2C5")
+```
+
+```{r}
+#| label: calcs
+
+total_revenue <- sum(sales$revenue)
+
+monthly_revenue <- sales |>
+  group_by(month) |>
+  summarise(total_revenue = sum(revenue), .groups = "drop")
+
+peak_month <- monthly_revenue |>
+  slice_max(total_revenue, n = 1) |>
+  pull(month) |>
+  as.character()
+
+dow_revenue <- sales |>
+  group_by(day_of_week) |>
+  summarise(avg_revenue = mean(revenue), .groups = "drop")
+
+best_day <- dow_revenue |>
+  slice_max(avg_revenue, n = 1) |>
+  pull(day_of_week) |>
+  as.character()
+
+holiday_compare <- sales |>
+  group_by(holiday) |>
+  summarise(avg_revenue = mean(revenue), .groups = "drop")
+
+holiday_avg     <- holiday_compare |> filter(holiday == TRUE)  |> pull(avg_revenue)
+non_holiday_avg <- holiday_compare |> filter(holiday == FALSE) |> pull(avg_revenue)
+holiday_lift    <- (holiday_avg - non_holiday_avg) / non_holiday_avg * 100
+```
+
+# Overview
+
+## Column {width="65%"}
+
+### Row {height="25%"}
+
+```{r}
+#| content: valuebox
+#| title: "Total Revenue"
+#| icon: cash-coin
+#| color: primary
+list(value = dollar(total_revenue, largest_with_cents = 0, scale = 1/1e6, suffix = "M"))
+```
+
+```{r}
+#| content: valuebox
+#| title: "Peak Month"
+#| icon: calendar-heart
+#| color: success
+list(value = peak_month)
+```
+
+```{r}
+#| content: valuebox
+#| title: "Best Day of Week"
+#| icon: star-fill
+#| color: success
+list(value = best_day)
+```
+
+```{r}
+#| content: valuebox
+#| title: "Holiday Revenue Lift"
+#| icon: gift-fill
+#| color: "#84A98C"
+list(value = paste0(round(holiday_lift, 1), "%"))
+```
+
+### Row {height="75%"}
+
+```{r}
+#| title: "Monthly Revenue Trend"
+
+monthly_trend <- sales |>
+  mutate(year_month = floor_date(date, "month")) |>
+  group_by(year_month) |>
+  summarise(total_revenue = sum(revenue), .groups = "drop")
+
+ggplot(monthly_trend, aes(x = year_month, y = total_revenue)) +
+  geom_line(color = "#2C5F2D", linewidth = 1.2) +
+  geom_point(color = "#2C5F2D", size = 2) +
+  scale_y_continuous(labels = label_dollar(scale = 1/1000, suffix = "K")) +
+  scale_x_date(date_labels = "%b %Y", date_breaks = "2 months") +
+  labs(x = NULL, y = "Total Revenue") +
+  theme_minimal(base_size = 12) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+```{r}
+#| title: "Average Revenue by Product Category and Month"
+
+cat_month <- sales |>
+  group_by(category, month) |>
+  summarise(avg_revenue = mean(revenue), .groups = "drop")
+
+ggplot(cat_month, aes(x = month, y = category, fill = avg_revenue)) +
+  geom_tile(color = "white", linewidth = 0.5) +
+  scale_fill_gradient(low = "#EAF4EA", high = "#1B4332", labels = label_dollar()) +
+  labs(x = NULL, y = NULL, fill = "Avg Revenue") +
+  theme_minimal(base_size = 12)
+```
+
+## Column {width="35%"}
+
+### Row {height="55%"}
+
+```{r}
+#| title: "Average Revenue by Day of Week"
+
+ggplot(dow_revenue, aes(x = day_of_week, y = avg_revenue, fill = day_of_week)) +
+  geom_col(show.legend = FALSE) +
+  scale_fill_manual(values = rep(gold_green, length.out = 7)) +
+  scale_y_continuous(labels = label_dollar()) +
+  labs(x = NULL, y = "Avg Revenue per Transaction") +
+  theme_minimal(base_size = 12) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+### Row {height="45%"}
+
+```{r}
+#| title: "Holiday vs. Non-Holiday Revenue"
+
+holiday_compare |>
+  mutate(holiday = if_else(holiday, "Holiday", "Non-Holiday")) |>
+  gt() |>
+  cols_label(holiday = "Date Type", avg_revenue = "Avg Revenue") |>
+  fmt_currency(columns = avg_revenue, decimals = 2) |>
+  data_color(
+    columns = avg_revenue,
+    method = "numeric",
+    palette = c("#EAF4EA", "#1B4332")
+  ) |>
+  tab_options(table.font.size = "0.85em")
+```
+
+# By Category
+
+## Column {width="100%"}
+
+### Row {height="60%"}
+
+::: {.card title="Monthly Revenue Trend by Category"}
+
+Each line below tracks total monthly revenue for one product category, letting you compare how seasonality plays out differently across Clothing, Electronics, Furniture, and Groceries.
+
+```{r}
+cat_trend <- sales |>
+  mutate(year_month = floor_date(date, "month")) |>
+  group_by(category, year_month) |>
+  summarise(total_revenue = sum(revenue), .groups = "drop")
+
+ggplot(cat_trend, aes(x = year_month, y = total_revenue, color = category)) +
+  geom_line(linewidth = 1) +
+  scale_color_manual(values = gold_green[1:4]) +
+  scale_y_continuous(labels = label_dollar(scale = 1/1000, suffix = "K")) +
+  scale_x_date(date_labels = "%b %Y", date_breaks = "3 months") +
+  labs(x = NULL, y = "Total Revenue", color = "Category") +
+  theme_minimal(base_size = 12) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+:::
+
+### Row {height="40%"}
+
+```{r}
+#| title: "Category Summary Statistics"
+
+sales |>
+  group_by(category) |>
+  summarise(
+    total_revenue   = sum(revenue),
+    avg_units_sold  = mean(units_sold),
+    avg_discount    = mean(discount_pct),
+    holiday_share   = mean(holiday) * 100,
+    .groups = "drop"
+  ) |>
+  arrange(desc(total_revenue)) |>
+  gt() |>
+  cols_label(
+    category       = "Category",
+    total_revenue  = "Total Revenue",
+    avg_units_sold = "Avg Units Sold",
+    avg_discount   = "Avg Discount %",
+    holiday_share  = "% Sold on Holidays"
+  ) |>
+  fmt_currency(columns = total_revenue, decimals = 0) |>
+  fmt_number(columns = avg_units_sold, decimals = 1) |>
+  fmt_number(columns = avg_discount, decimals = 1, pattern = "{x}%") |>
+  fmt_number(columns = holiday_share, decimals = 1, pattern = "{x}%") |>
+  data_color(
+    columns = total_revenue,
+    method = "numeric",
+    palette = c("#EAF4EA", "#1B4332")
+  ) |>
+  tab_options(table.font.size = "0.9em")
+```

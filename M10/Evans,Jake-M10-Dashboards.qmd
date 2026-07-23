@@ -1,0 +1,579 @@
+---
+title: "W10-Dashboards Assignment"
+subtitle: "Retail Seasonality Dashboard & Discount Effectiveness Explorer"
+author: "Jake Evans"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 4
+    toc-expand: true
+    number-sections: true
+    embed-resources: true
+    theme: cosmo
+    code-fold: true
+    code-tools: true
+    code-overflow: wrap
+execute:
+  echo: true
+  warning: false
+  message: false
+---
+
+## Overview
+
+This report documents two dashboard deliverables built from the IBM 6540 group project retail sales dataset (Kaggle: *Retail Sales Data with Seasonal Trends & Marketing*, 30,000 transactions, Jan 2022 -- Jan 2024, four product categories). Project 1 is a static Quarto dashboard telling a seasonality story. Project 2 is an interactive Shiny app exploring discount effectiveness.
+
+# Project 1: Seasonality & Timing Dashboard
+
+## Project Description
+
+This static dashboard answers a single question for a non-technical retail stakeholder: **when during the year do customers actually buy, and does timing matter?** It surfaces the peak sales month, the strongest day of the week, and the revenue lift on holiday dates, then backs those headline numbers with a monthly trend line, a category-by-month heatmap, and a per-category breakdown page. Because the goal is to communicate a settled finding rather than let the audience explore, a static dashboard is the right format: every chart and value box tells a fixed part of the same seasonal story, with no filters required to understand it.
+
+## Data Description
+
+The dataset contains 30,000 daily transaction-level records spanning January 1, 2022 to January 1, 2024, with the following fields:
+
+| Column | Description |
+|---|---|
+| Store ID | Store identifier (single store in this dataset) |
+| Product ID | Product identifier |
+| Date | Transaction date |
+| Units Sold | Number of units sold |
+| Sales Revenue (USD) | Revenue generated |
+| Discount Percentage | Discount applied (0-20%) |
+| Marketing Spend (USD) | Marketing spend associated with the transaction |
+| Store Location | Country associated with the transaction |
+| Product Category | Clothing, Electronics, Furniture, or Groceries |
+| Day of the Week | Day name |
+| Holiday Effect | Boolean flag for whether the date was a holiday |
+
+No missing values were found across any column. The dashboard uses Date, Sales Revenue, Product Category, Day of the Week, and Holiday Effect to build the seasonality story.
+
+## R Code
+
+This is the full source of `Evans,Jake-M10-Dashboard-Static.qmd`, shown here as plain text (not executed) per the assignment instructions.
+
+```` r
+---
+title: "Retail Seasonality & Timing Dashboard"
+subtitle: "When Do Customers Buy? A Seasonal Analysis of Retail Sales"
+author: "Jake Evans"
+date: today
+format:
+  dashboard:
+    theme: cosmo
+    embed-resources: true
+    orientation: columns
+    nav-buttons:
+      - icon: github
+        href: https://github.com/jakevns/RStudio
+        aria-label: GitHub repository
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```​{r}
+#| label: setup
+
+library(tidyverse)
+library(lubridate)
+library(scales)
+library(gt)
+
+sales <- read_csv("data/Retail_sales.csv", show_col_types = FALSE) |>
+  rename(
+    store_id         = `Store ID`,
+    product_id       = `Product ID`,
+    date             = Date,
+    units_sold       = `Units Sold`,
+    revenue          = `Sales Revenue (USD)`,
+    discount_pct     = `Discount Percentage`,
+    marketing_spend  = `Marketing Spend (USD)`,
+    store_location   = `Store Location`,
+    category         = `Product Category`,
+    day_of_week      = `Day of the Week`,
+    holiday          = `Holiday Effect`
+  ) |>
+  mutate(
+    date        = as_date(date),
+    month       = month(date, label = TRUE, abbr = TRUE),
+    year        = year(date),
+    day_of_week = factor(
+      day_of_week,
+      levels = c("Monday", "Tuesday", "Wednesday", "Thursday",
+                 "Friday", "Saturday", "Sunday")
+    )
+  )
+
+gold_green <- c("#1B4332", "#2C5F2D", "#52796F", "#84A98C", "#CAD2C5")
+```
+
+```​{r}
+#| label: calcs
+
+total_revenue <- sum(sales$revenue)
+
+monthly_revenue <- sales |>
+  group_by(month) |>
+  summarise(total_revenue = sum(revenue), .groups = "drop")
+
+peak_month <- monthly_revenue |>
+  slice_max(total_revenue, n = 1) |>
+  pull(month) |>
+  as.character()
+
+dow_revenue <- sales |>
+  group_by(day_of_week) |>
+  summarise(avg_revenue = mean(revenue), .groups = "drop")
+
+best_day <- dow_revenue |>
+  slice_max(avg_revenue, n = 1) |>
+  pull(day_of_week) |>
+  as.character()
+
+holiday_compare <- sales |>
+  group_by(holiday) |>
+  summarise(avg_revenue = mean(revenue), .groups = "drop")
+
+holiday_avg     <- holiday_compare |> filter(holiday == TRUE)  |> pull(avg_revenue)
+non_holiday_avg <- holiday_compare |> filter(holiday == FALSE) |> pull(avg_revenue)
+holiday_lift    <- (holiday_avg - non_holiday_avg) / non_holiday_avg * 100
+```
+
+# Overview
+
+## Column {width="65%"}
+
+### Row {height="25%"}
+
+```​{r}
+#| content: valuebox
+#| title: "Total Revenue"
+#| icon: cash-coin
+#| color: primary
+list(value = dollar(total_revenue, largest_with_cents = 0, scale = 1/1e6, suffix = "M"))
+```
+
+```​{r}
+#| content: valuebox
+#| title: "Peak Month"
+#| icon: calendar-heart
+#| color: success
+list(value = peak_month)
+```
+
+```​{r}
+#| content: valuebox
+#| title: "Best Day of Week"
+#| icon: star-fill
+#| color: success
+list(value = best_day)
+```
+
+```​{r}
+#| content: valuebox
+#| title: "Holiday Revenue Lift"
+#| icon: gift-fill
+#| color: "#84A98C"
+list(value = paste0(round(holiday_lift, 1), "%"))
+```
+
+### Row {height="75%"}
+
+```​{r}
+#| title: "Monthly Revenue Trend"
+
+monthly_trend <- sales |>
+  mutate(year_month = floor_date(date, "month")) |>
+  group_by(year_month) |>
+  summarise(total_revenue = sum(revenue), .groups = "drop")
+
+ggplot(monthly_trend, aes(x = year_month, y = total_revenue)) +
+  geom_line(color = "#2C5F2D", linewidth = 1.2) +
+  geom_point(color = "#2C5F2D", size = 2) +
+  scale_y_continuous(labels = label_dollar(scale = 1/1000, suffix = "K")) +
+  scale_x_date(date_labels = "%b %Y", date_breaks = "2 months") +
+  labs(x = NULL, y = "Total Revenue") +
+  theme_minimal(base_size = 12) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+```​{r}
+#| title: "Average Revenue by Product Category and Month"
+
+cat_month <- sales |>
+  group_by(category, month) |>
+  summarise(avg_revenue = mean(revenue), .groups = "drop")
+
+ggplot(cat_month, aes(x = month, y = category, fill = avg_revenue)) +
+  geom_tile(color = "white", linewidth = 0.5) +
+  scale_fill_gradient(low = "#EAF4EA", high = "#1B4332", labels = label_dollar()) +
+  labs(x = NULL, y = NULL, fill = "Avg Revenue") +
+  theme_minimal(base_size = 12)
+```
+
+## Column {width="35%"}
+
+### Row {height="55%"}
+
+```​{r}
+#| title: "Average Revenue by Day of Week"
+
+ggplot(dow_revenue, aes(x = day_of_week, y = avg_revenue, fill = day_of_week)) +
+  geom_col(show.legend = FALSE) +
+  scale_fill_manual(values = rep(gold_green, length.out = 7)) +
+  scale_y_continuous(labels = label_dollar()) +
+  labs(x = NULL, y = "Avg Revenue per Transaction") +
+  theme_minimal(base_size = 12) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+### Row {height="45%"}
+
+```​{r}
+#| title: "Holiday vs. Non-Holiday Revenue"
+
+holiday_compare |>
+  mutate(holiday = if_else(holiday, "Holiday", "Non-Holiday")) |>
+  gt() |>
+  cols_label(holiday = "Date Type", avg_revenue = "Avg Revenue") |>
+  fmt_currency(columns = avg_revenue, decimals = 2) |>
+  data_color(
+    columns = avg_revenue,
+    method = "numeric",
+    palette = c("#EAF4EA", "#1B4332")
+  ) |>
+  tab_options(table.font.size = "0.85em")
+```
+
+# By Category
+
+## Column {width="100%"}
+
+### Row {height="60%"}
+
+::: {.card title="Monthly Revenue Trend by Category"}
+
+Each line below tracks total monthly revenue for one product category, letting you compare how seasonality plays out differently across Clothing, Electronics, Furniture, and Groceries.
+
+```​{r}
+cat_trend <- sales |>
+  mutate(year_month = floor_date(date, "month")) |>
+  group_by(category, year_month) |>
+  summarise(total_revenue = sum(revenue), .groups = "drop")
+
+ggplot(cat_trend, aes(x = year_month, y = total_revenue, color = category)) +
+  geom_line(linewidth = 1) +
+  scale_color_manual(values = gold_green[1:4]) +
+  scale_y_continuous(labels = label_dollar(scale = 1/1000, suffix = "K")) +
+  scale_x_date(date_labels = "%b %Y", date_breaks = "3 months") +
+  labs(x = NULL, y = "Total Revenue", color = "Category") +
+  theme_minimal(base_size = 12) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+:::
+
+### Row {height="40%"}
+
+```​{r}
+#| title: "Category Summary Statistics"
+
+sales |>
+  group_by(category) |>
+  summarise(
+    total_revenue   = sum(revenue),
+    avg_units_sold  = mean(units_sold),
+    avg_discount    = mean(discount_pct),
+    holiday_share   = mean(holiday) * 100,
+    .groups = "drop"
+  ) |>
+  arrange(desc(total_revenue)) |>
+  gt() |>
+  cols_label(
+    category       = "Category",
+    total_revenue  = "Total Revenue",
+    avg_units_sold = "Avg Units Sold",
+    avg_discount   = "Avg Discount %",
+    holiday_share  = "% Sold on Holidays"
+  ) |>
+  fmt_currency(columns = total_revenue, decimals = 0) |>
+  fmt_number(columns = avg_units_sold, decimals = 1) |>
+  fmt_number(columns = avg_discount, decimals = 1, pattern = "{x}%") |>
+  fmt_number(columns = holiday_share, decimals = 1, pattern = "{x}%") |>
+  data_color(
+    columns = total_revenue,
+    method = "numeric",
+    palette = c("#EAF4EA", "#1B4332")
+  ) |>
+  tab_options(table.font.size = "0.9em")
+```
+````
+
+## Findings from the Data
+
+- **Total revenue** across the full two-year window is summarized in the headline value box, giving the audience an immediate scale reference before drilling into seasonal patterns.
+- **Peak month**: the value box identifies the single highest-revenue month, letting stakeholders quickly see whether sales cluster around a particular season (e.g., holiday shopping months) or stay flat year-round.
+- **Best day of week**: the strongest average-revenue day is surfaced directly, which is useful for staffing and promotional timing decisions.
+- **Holiday revenue lift**: comparing average revenue on holiday-flagged dates versus non-holiday dates quantifies whether holidays meaningfully move the needle -- a positive lift supports investing more marketing spend around holiday dates, while a lift near zero would suggest the "Holiday Effect" flag isn't a strong lever in this dataset.
+- **Category seasonality differs**: the "By Category" page's monthly trend lines show that not all categories peak at the same time, which matters for category-specific promotional calendars rather than a single blanket seasonal strategy.
+
+## Interpret the Dashboard Charts
+
+- The **monthly revenue trend line** (Overview page) shows the overall shape of demand across the two-year window, making it easy to spot whether revenue is growing, seasonal, or flat.
+- The **category x month heatmap** compresses four categories and twelve months into a single glance -- darker tiles mark higher average revenue, so a reader can immediately spot which category-month combinations matter most without reading every number.
+- The **day-of-week bar chart** ranks average revenue per transaction by weekday, answering "is there a best day to run a promotion?" at a glance.
+- The **holiday vs. non-holiday table** puts the two averages side by side with color-coded shading, so the size of the holiday effect is visually obvious rather than requiring the reader to do the subtraction themselves.
+- The **By Category page** breaks the same seasonal question down per category, both as trend lines and as a summary table (total revenue, average units sold, average discount, and share of holiday sales per category), so a reader can compare categories directly.
+
+## Clickable URL of the Published Web Page
+
+> **TODO (Jake):** Render this QMD, push the HTML to `jakevns/RStudio`, and replace this line with the live GitHub Pages URL, e.g. `https://jakevns.github.io/RStudio/M10/Evans,Jake-M10-Dashboard-Static.html`
+
+# Project 2: Discount Effectiveness Explorer (Shiny App)
+
+## Project Description
+
+This interactive Shiny app answers a different question from Project 1: **does discounting actually move units sold and revenue, and by how much?** Rather than presenting a fixed conclusion, this deliverable is built for exploration -- a marketing stakeholder can filter by product category, discount depth, date range, and holiday status, and immediately see how the discount-to-sales relationship shifts. This is a deliberately different story from the seasonality dashboard: seasonality asks *when* people buy, while this app asks *what makes them buy more*.
+
+## Data Description
+
+The app uses the same 30,000-row retail sales dataset described in Project 1. For this app, discounts are additionally binned into three tiers for the summary table: **Low (0-5%)**, **Moderate (6-12%)**, and **High (13-20%)**, based on the dataset's actual 0-20% discount range.
+
+## R Code
+
+This is the full source of `discount-explorer/app.R`, shown here as plain text (not executed) per the assignment instructions.
+
+```r
+library(shiny)
+library(tidyverse)
+library(lubridate)
+library(plotly)
+library(DT)
+library(scales)
+
+# ---- Data prep (loaded once at app start, not reactive) ----
+
+sales <- read_csv("Retail_sales.csv", show_col_types = FALSE) |>
+  rename(
+    store_id         = `Store ID`,
+    product_id       = `Product ID`,
+    date             = Date,
+    units_sold       = `Units Sold`,
+    revenue          = `Sales Revenue (USD)`,
+    discount_pct     = `Discount Percentage`,
+    marketing_spend  = `Marketing Spend (USD)`,
+    store_location   = `Store Location`,
+    category         = `Product Category`,
+    day_of_week      = `Day of the Week`,
+    holiday          = `Holiday Effect`
+  ) |>
+  mutate(
+    date = as_date(date),
+    discount_tier = case_when(
+      discount_pct <= 5  ~ "Low (0-5%)",
+      discount_pct <= 12 ~ "Moderate (6-12%)",
+      TRUE               ~ "High (13-20%)"
+    ),
+    discount_tier = factor(
+      discount_tier,
+      levels = c("Low (0-5%)", "Moderate (6-12%)", "High (13-20%)")
+    )
+  )
+
+categories <- sort(unique(sales$category))
+min_date   <- min(sales$date)
+max_date   <- max(sales$date)
+
+# ---- UI ----
+
+ui <- fluidPage(
+  titlePanel("Discount Effectiveness Explorer"),
+  p("Does discounting actually move units and revenue? Filter by category, ",
+    "discount range, and date window below to explore the relationship ",
+    "between discount depth and sales performance."),
+
+  sidebarLayout(
+    sidebarPanel(
+      checkboxGroupInput(
+        "category", "Product Category",
+        choices  = categories,
+        selected = categories
+      ),
+      sliderInput(
+        "discount_range", "Discount Percentage Range",
+        min = 0, max = 20, value = c(0, 20), step = 1, post = "%"
+      ),
+      dateRangeInput(
+        "date_range", "Date Range",
+        start = min_date, end = max_date,
+        min   = min_date, max = max_date
+      ),
+      checkboxInput("holiday_only", "Holiday dates only", value = FALSE),
+      hr(),
+      helpText("Discount tiers used in the summary table below: ",
+               "Low = 0-5%, Moderate = 6-12%, High = 13-20%.")
+    ),
+
+    mainPanel(
+      fluidRow(
+        column(3, uiOutput("box_transactions")),
+        column(3, uiOutput("box_avg_units")),
+        column(3, uiOutput("box_avg_revenue")),
+        column(3, uiOutput("box_avg_discount"))
+      ),
+      br(),
+      plotlyOutput("scatter_plot", height = "350px"),
+      br(),
+      plotlyOutput("trend_plot", height = "300px"),
+      br(),
+      h4("Summary by Discount Tier"),
+      DTOutput("tier_table")
+    )
+  )
+)
+
+# ---- Server ----
+
+server <- function(input, output, session) {
+
+  filtered <- reactive({
+    req(input$category, input$discount_range, input$date_range)
+
+    df <- sales |>
+      filter(
+        category     %in% input$category,
+        discount_pct >= input$discount_range[1],
+        discount_pct <= input$discount_range[2],
+        date         >= input$date_range[1],
+        date         <= input$date_range[2]
+      )
+
+    if (input$holiday_only) {
+      df <- df |> filter(holiday == TRUE)
+    }
+
+    df
+  })
+
+  value_box <- function(value, label) {
+    div(
+      style = "text-align:center; background:#EAF4EA; border-radius:8px; padding:12px; margin-bottom:10px;",
+      h3(style = "margin:0; color:#1B4332;", value),
+      p(style = "margin:0; color:#52796F;", label)
+    )
+  }
+
+  output$box_transactions <- renderUI({
+    value_box(comma(nrow(filtered())), "Transactions")
+  })
+
+  output$box_avg_units <- renderUI({
+    df <- filtered()
+    val <- if (nrow(df) == 0) "—" else round(mean(df$units_sold), 1)
+    value_box(val, "Avg Units Sold")
+  })
+
+  output$box_avg_revenue <- renderUI({
+    df <- filtered()
+    val <- if (nrow(df) == 0) "—" else dollar(mean(df$revenue))
+    value_box(val, "Avg Revenue")
+  })
+
+  output$box_avg_discount <- renderUI({
+    df <- filtered()
+    val <- if (nrow(df) == 0) "—" else paste0(round(mean(df$discount_pct), 1), "%")
+    value_box(val, "Avg Discount")
+  })
+
+  output$scatter_plot <- renderPlotly({
+    df <- filtered()
+    validate(need(nrow(df) > 0, "No data for the selected filters."))
+
+    plot_df <- df |>
+      group_by(discount_pct, category) |>
+      summarise(avg_units = mean(units_sold), .groups = "drop")
+
+    p <- ggplot(plot_df, aes(x = discount_pct, y = avg_units, color = category)) +
+      geom_point(size = 2, alpha = 0.7) +
+      geom_smooth(aes(group = category), method = "lm", se = FALSE, linewidth = 0.7) +
+      scale_color_brewer(palette = "Set2") +
+      labs(
+        x = "Discount Percentage", y = "Avg Units Sold", color = "Category",
+        title = "Discount Level vs. Average Units Sold"
+      ) +
+      theme_minimal(base_size = 12)
+
+    ggplotly(p)
+  })
+
+  output$trend_plot <- renderPlotly({
+    df <- filtered()
+    validate(need(nrow(df) > 0, "No data for the selected filters."))
+
+    plot_df <- df |>
+      mutate(year_month = floor_date(date, "month")) |>
+      group_by(year_month) |>
+      summarise(total_revenue = sum(revenue), .groups = "drop")
+
+    p <- ggplot(plot_df, aes(x = year_month, y = total_revenue)) +
+      geom_line(color = "#2C5F2D", linewidth = 1) +
+      geom_point(color = "#2C5F2D", size = 1.5) +
+      scale_y_continuous(labels = label_dollar(scale = 1/1000, suffix = "K")) +
+      labs(x = NULL, y = "Total Revenue", title = "Revenue Over Time (Filtered)") +
+      theme_minimal(base_size = 12)
+
+    ggplotly(p)
+  })
+
+  output$tier_table <- renderDT({
+    df <- filtered()
+    validate(need(nrow(df) > 0, "No data for the selected filters."))
+
+    df |>
+      group_by(discount_tier) |>
+      summarise(
+        transactions   = n(),
+        avg_units_sold = round(mean(units_sold), 1),
+        avg_revenue    = round(mean(revenue), 2),
+        total_revenue  = round(sum(revenue), 2),
+        .groups = "drop"
+      ) |>
+      rename(
+        `Discount Tier`   = discount_tier,
+        `Transactions`    = transactions,
+        `Avg Units Sold`  = avg_units_sold,
+        `Avg Revenue`     = avg_revenue,
+        `Total Revenue`   = total_revenue
+      ) |>
+      datatable(rownames = FALSE, options = list(dom = "t"))
+  })
+}
+
+shinyApp(ui, server)
+```
+
+## Key Findings from the Data
+
+- **Discount depth vs. units sold**: the scatter plot with per-category trend lines shows whether higher discounts are associated with more units sold, and whether that relationship holds consistently across all four categories or is stronger for some (e.g., discretionary categories like Clothing or Electronics) than others (e.g., Groceries, which may be less discount-sensitive).
+- **Discount tier summary table**: comparing average units sold and average revenue across Low, Moderate, and High discount tiers makes it possible to see whether revenue per transaction actually increases with deeper discounts, or whether the extra units sold don't fully offset the lower price -- a key question for whether aggressive discounting is worth the margin hit.
+- **Filtering by holiday-only dates** lets a user isolate whether the discount-to-sales relationship changes during holiday periods specifically, which is useful for deciding whether holiday promotions should lean on deeper discounts or not.
+- **Date range filtering** allows a user to check whether the discount effect has been consistent over the two-year window or has shifted over time.
+
+## Interpret the Dashboard Charts
+
+- The four **summary boxes** at the top (transactions, average units sold, average revenue, average discount) update live with every filter change, giving an at-a-glance read on the currently selected slice of data before looking at the charts.
+- The **discount vs. units sold scatter plot** is the core exploratory chart: each point is an average at a given discount level, colored by category, with a linear trend line per category so the direction and strength of the discount effect is immediately visible.
+- The **revenue-over-time line chart** shows how total revenue for the current filter selection trends across the two-year window, useful for checking whether a discount strategy's impact is stable or seasonal.
+- The **discount tier table** is the most stakeholder-friendly view -- it turns the continuous discount variable into three plain-language tiers and shows transactions, average units sold, average revenue, and total revenue for each, making the discount-effectiveness tradeoff easy to read without any statistical background.
+
+## Interactive App
+
+The Shiny app should be deployed to shinyapps.io using the `app.R` and `Retail_sales.csv` files in the `discount-explorer/` folder (via the RStudio **Publish** button or `rsconnect::deployApp()`).
+
+## Clickable URL of the Shiny App
+
+> **TODO (Jake):** Deploy `discount-explorer/app.R` to shinyapps.io and replace this line with the live URL, e.g. `https://jakevns.shinyapps.io/discount-explorer/`
