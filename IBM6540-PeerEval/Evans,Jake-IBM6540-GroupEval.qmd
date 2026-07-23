@@ -1,0 +1,60 @@
+---
+title: "Group Member Evaluation Form"
+subtitle: "IBM 6540 — Applied Machine Learning for Marketing"
+author: "Jake Evans"
+date: today
+format:
+  html:
+    theme: cosmo
+    toc: true
+    toc-depth: 4
+    toc-expand: true
+    number-sections: true
+    code-fold: true
+    code-tools: true
+    code-overflow: wrap
+    embed-resources: true
+---
+
+## Evaluation Details
+
+| Field | Value |
+|---|---|
+| Name | Jake Evans |
+| Date | 07/22/2026 |
+| Group Name / Project Name | Seis Leches (Group 1) — IBM 6540 Retail Discount & Sales Analysis |
+
+## Instructions
+
+Please evaluate your group members (including you) from 1 to 100% scale. If you believe that a member equally contributed to the group project output submitted, give them 100%. If you believe that a member did not do his or her fair share, assign a percentage less than 100%. Evaluation will be confidential. If a person receives grades that are less than 100% from more than one person, the average of peer evaluation will be weighted to group grade to determine individual grade. Each student must evaluate his/her peers in the absence of the other members to guarantee confidentiality and accuracy.
+
+If there was a group leader who contributed to the group's success greatly above and beyond regular group members, that person may be identified as MVP below and may receive up to 10% of the group's score on top of the group score, if there is a consensus.
+
+## Ratings
+
+| # | Member Name | Grade (%) | MVP (yes/no) |
+|---|---|---|---|
+| 1 (self) | Jake Evans | 100% | no |
+| 2 | Mickyas Shawel | 100% | **yes** |
+| 3 | Aldo Naranjo | 100% | no |
+| 4 | Luis Berumen | 100% | no |
+| 5 | Tim Arana | 100% | no |
+
+## Comments on Teammate Contributions
+
+**Mickyas Shawel** set up and maintained our GitHub repository for the semester, which everyone built on top of, and he led **RO5 (Marketing Interaction)**. His early setup work made it easy for the rest of the group to jump in and contribute consistently — **MVP for the group**.
+
+**Aldo Naranjo** led **RO2 (Discounts & Volume)** and delivered his analysis and slides on schedule.
+
+**Luis Berumen** led **RO3 (Discounts & Revenue)** and helped clean and verify the shared dataset.
+
+**Tim Arana** led **RO4 (Category Differences)** and contributed solid analysis and edits throughout.
+
+**Jake Evans (self):** I sourced the group's dataset and led **RO1 (Seasonality & Timing)**, building the working charts and analysis for that objective.
+
+Everyone met their responsibilities this semester and the group worked well together overall.
+
+## Appendix {.appendix}
+
+- **GitHub Repo:** [jakevns/RStudio](https://github.com/jakevns/RStudio/tree/main/IBM6540-PeerEval)
+- **GitHub Pages:** [Evans, Jake — IBM 6540 Group Evaluation](https://jakevns.github.io/RStudio/IBM6540-PeerEval/Evans%2CJake-IBM6540-GroupEval.html)
