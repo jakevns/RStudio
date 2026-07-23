@@ -22,13 +22,19 @@ execute:
 
 ## Overview
 
-This report documents two dashboard deliverables built from the IBM 6540 group project retail sales dataset (Kaggle: *Retail Sales Data with Seasonal Trends & Marketing*, 30,000 transactions, Jan 2022 -- Jan 2024, four product categories). Project 1 is a static Quarto dashboard telling a seasonality story. Project 2 is an interactive Shiny app exploring discount effectiveness.
+This report documents two dashboard deliverables created using the IBM 6540 group project retail sales dataset from Kaggle, titled *Retail Sales Data with Seasonal Trends & Marketing*. The dataset includes 30,000 transactions recorded between January 2022 and January 2024 across four product categories.
+
+Project 1 is a static Quarto dashboard that presents a story focused on seasonal sales patterns. Project 2 is an interactive Shiny application that allows users to explore the effectiveness of discounts.
 
 # Project 1: Seasonality & Timing Dashboard
 
 ## Project Description
 
-This static dashboard answers a single question for a non-technical retail stakeholder: **when during the year do customers actually buy, and does timing matter?** It surfaces the peak sales month, the strongest day of the week, and the revenue lift on holiday dates, then backs those headline numbers with a monthly trend line, a category-by-month heatmap, and a per-category breakdown page. Because the goal is to communicate a settled finding rather than let the audience explore, a static dashboard is the right format: every chart and value box tells a fixed part of the same seasonal story, with no filters required to understand it.
+This static dashboard is designed to answer one main question for a non-technical retail stakeholder: **when during the year do customers actually make purchases, and how much does timing matter?**
+
+It highlights the peak sales month, the strongest day of the week, and the increase in revenue on holiday dates. These headline findings are supported by a monthly sales trend, a category by month heatmap, and a separate breakdown for each product category.
+
+Because the goal is to communicate a clear, established finding rather than allow users to explore the data themselves, a static dashboard is the most appropriate format. Each chart and value box contributes to the same seasonal story, and no filters or additional interaction are needed to understand the main results.
 
 ## Data Description
 
@@ -52,7 +58,7 @@ No missing values were found across any column. The dashboard uses Date, Sales R
 
 ## R Code
 
-This is the full source of `Evans,Jake-M10-Dashboard-Static.qmd`, shown here as plain text (not executed) per the assignment instructions.
+This is the full source of `Evans,Jake-M10-Dashboard-Static.qmd`, shown here as plain text.
 
 ```` r
 ---
@@ -315,37 +321,51 @@ sales |>
 
 ## Findings from the Data
 
-- **Total revenue** across the full two-year window is summarized in the headline value box, giving the audience an immediate scale reference before drilling into seasonal patterns.
-- **Peak month**: the value box identifies the single highest-revenue month, letting stakeholders quickly see whether sales cluster around a particular season (e.g., holiday shopping months) or stay flat year-round.
-- **Best day of week**: the strongest average-revenue day is surfaced directly, which is useful for staffing and promotional timing decisions.
-- **Holiday revenue lift**: comparing average revenue on holiday-flagged dates versus non-holiday dates quantifies whether holidays meaningfully move the needle -- a positive lift supports investing more marketing spend around holiday dates, while a lift near zero would suggest the "Holiday Effect" flag isn't a strong lever in this dataset.
-- **Category seasonality differs**: the "By Category" page's monthly trend lines show that not all categories peak at the same time, which matters for category-specific promotional calendars rather than a single blanket seasonal strategy.
+* **Total revenue:** The headline value box summarizes total revenue across the full two-year period. This gives the audience an immediate sense of scale before they look more closely at the seasonal patterns.
+
+* **Peak month:** The value box identifies the month with the highest revenue, making it easy to see whether sales are concentrated around a particular season, such as the holiday shopping period, or remain relatively consistent throughout the year.
+
+* **Best day of the week:** The dashboard highlights the day with the highest average revenue. This finding can help support decisions related to staffing, campaign timing, and promotional scheduling.
+
+* **Holiday revenue lift:** The dashboard compares average revenue on holiday dates with average revenue on non-holiday dates. This helps show whether holidays have a meaningful effect on sales. A positive lift may support increasing marketing activity around holiday periods, while little or no lift would suggest that the “Holiday Effect” variable is not a strong driver in this dataset.
+
+* **Category seasonality differs:** The monthly trend lines on the “By Category” page show that product categories do not all peak at the same time. This suggests that category-specific promotional calendars may be more effective than using one seasonal strategy across the entire business.
+
 
 ## Interpret the Dashboard Charts
 
-- The **monthly revenue trend line** (Overview page) shows the overall shape of demand across the two-year window, making it easy to spot whether revenue is growing, seasonal, or flat.
-- The **category x month heatmap** compresses four categories and twelve months into a single glance -- darker tiles mark higher average revenue, so a reader can immediately spot which category-month combinations matter most without reading every number.
-- The **day-of-week bar chart** ranks average revenue per transaction by weekday, answering "is there a best day to run a promotion?" at a glance.
-- The **holiday vs. non-holiday table** puts the two averages side by side with color-coded shading, so the size of the holiday effect is visually obvious rather than requiring the reader to do the subtraction themselves.
-- The **By Category page** breaks the same seasonal question down per category, both as trend lines and as a summary table (total revenue, average units sold, average discount, and share of holiday sales per category), so a reader can compare categories directly.
+* The **monthly revenue trend line** on the Overview page shows the overall pattern of demand across the two-year period. This makes it easier to see whether revenue is increasing, following a seasonal pattern, or remaining relatively stable.
+
+* The **category-by-month heatmap** summarizes four product categories across twelve months in a single visual. Darker tiles represent higher average revenue, allowing the reader to quickly identify the category and month combinations that stand out most.
+
+* The **day-of-week bar chart** compares average revenue per transaction across each weekday. It provides a clear answer to whether certain days may be better suited for promotions or other sales activity.
+
+* The **holiday versus non-holiday table** places both averages side by side and uses color shading to make the difference easy to see. This helps the reader understand the size of the holiday effect without needing to calculate it manually.
+
+* The **By Category page** examines the same seasonal question at the individual category level. It includes both trend lines and a summary table showing total revenue, average units sold, average discount, and the share of holiday sales for each category, making direct comparisons easier.
 
 ## Clickable URL of the Published Web Page
 
-> **TODO (Jake):** Render this QMD, push the HTML to `jakevns/RStudio`, and replace this line with the live GitHub Pages URL, e.g. `https://jakevns.github.io/RStudio/M10/Evans,Jake-M10-Dashboard-Static.html`
+[https://jakevns.github.io/RStudio/M10/Evans,Jake-M10-Dashboard-Static.html](https://jakevns.github.io/RStudio/M10/Evans,Jake-M10-Dashboard-Static.html)
 
 # Project 2: Discount Effectiveness Explorer (Shiny App)
 
 ## Project Description
 
-This interactive Shiny app answers a different question from Project 1: **does discounting actually move units sold and revenue, and by how much?** Rather than presenting a fixed conclusion, this deliverable is built for exploration -- a marketing stakeholder can filter by product category, discount depth, date range, and holiday status, and immediately see how the discount-to-sales relationship shifts. This is a deliberately different story from the seasonality dashboard: seasonality asks *when* people buy, while this app asks *what makes them buy more*.
+This interactive Shiny application focuses on a different question from Project 1: **does discounting lead to higher unit sales and revenue, and if so, by how much?**
+
+Instead of presenting one fixed conclusion, the application is designed for exploration. A marketing stakeholder can filter the data by product category, discount level, date range, and holiday status to see how the relationship between discounts and sales changes across different conditions.
+
+This creates a clearly different story from the seasonality dashboard. Project 1 examines *when* customers are most likely to buy, while this application explores *what factors may encourage them to buy more*.
 
 ## Data Description
 
-The app uses the same 30,000-row retail sales dataset described in Project 1. For this app, discounts are additionally binned into three tiers for the summary table: **Low (0-5%)**, **Moderate (6-12%)**, and **High (13-20%)**, based on the dataset's actual 0-20% discount range.
+The application uses the same 30,000-row retail sales dataset described in Project 1. For the summary table, discount values are grouped into three tiers based on the dataset’s actual discount range of 0% to 20%: **Low (0–5%)**, **Moderate (6–12%)**, and **High (13–20%)**.
+
 
 ## R Code
 
-This is the full source of `discount-explorer/app.R`, shown here as plain text (not executed) per the assignment instructions.
+This is the full source of `discount-explorer/app.R`, shown here as plain text.
 
 ```r
 library(shiny)
@@ -558,17 +578,25 @@ shinyApp(ui, server)
 
 ## Key Findings from the Data
 
-- **Discount depth vs. units sold**: the scatter plot with per-category trend lines shows whether higher discounts are associated with more units sold, and whether that relationship holds consistently across all four categories or is stronger for some (e.g., discretionary categories like Clothing or Electronics) than others (e.g., Groceries, which may be less discount-sensitive).
-- **Discount tier summary table**: comparing average units sold and average revenue across Low, Moderate, and High discount tiers makes it possible to see whether revenue per transaction actually increases with deeper discounts, or whether the extra units sold don't fully offset the lower price -- a key question for whether aggressive discounting is worth the margin hit.
-- **Filtering by holiday-only dates** lets a user isolate whether the discount-to-sales relationship changes during holiday periods specifically, which is useful for deciding whether holiday promotions should lean on deeper discounts or not.
-- **Date range filtering** allows a user to check whether the discount effect has been consistent over the two-year window or has shifted over time.
+* **Discount depth versus units sold:** The scatter plot and category-level trend lines show whether larger discounts are associated with higher unit sales. They also make it possible to compare whether this relationship is consistent across all four categories or stronger in categories such as Clothing and Electronics than in Groceries.
+
+* **Discount tier summary table:** The summary table compares average units sold and average revenue across the Low, Moderate, and High discount tiers. This helps show whether deeper discounts increase revenue per transaction or whether the additional units sold are not enough to offset the lower selling price. This is an important consideration when evaluating whether aggressive discounting is worth the potential reduction in margin.
+
+* **Holiday-only filtering:** The holiday filter allows users to isolate holiday dates and examine whether the relationship between discounts and sales changes during those periods. This can help determine whether holiday promotions may benefit from deeper discounts or whether a different strategy would be more effective.
+
+* **Date range filtering:** The date range filter allows users to examine whether the effect of discounting remained consistent throughout the two-year period or changed over time.
+
 
 ## Interpret the Dashboard Charts
 
-- The four **summary boxes** at the top (transactions, average units sold, average revenue, average discount) update live with every filter change, giving an at-a-glance read on the currently selected slice of data before looking at the charts.
-- The **discount vs. units sold scatter plot** is the core exploratory chart: each point is an average at a given discount level, colored by category, with a linear trend line per category so the direction and strength of the discount effect is immediately visible.
-- The **revenue-over-time line chart** shows how total revenue for the current filter selection trends across the two-year window, useful for checking whether a discount strategy's impact is stable or seasonal.
-- The **discount tier table** is the most stakeholder-friendly view -- it turns the continuous discount variable into three plain-language tiers and shows transactions, average units sold, average revenue, and total revenue for each, making the discount-effectiveness tradeoff easy to read without any statistical background.
+* The four **summary boxes** at the top of the application show the number of transactions, average units sold, average revenue, and average discount. Each value updates automatically when the filters change, giving users a quick overview of the selected data before they examine the charts.
+
+* The **discount versus units sold scatter plot** is the main exploratory visual in the application. Each point represents the average units sold at a specific discount level and is colored by product category. A separate linear trend line is included for each category, making the overall direction and relative strength of the discount relationship easier to see.
+
+* The **revenue-over-time line chart** displays total revenue for the current filter selection across the two-year period. This allows users to examine whether the results of a discount strategy appear consistent over time or vary with seasonal demand.
+
+* The **discount tier table** provides the most accessible summary for non-technical stakeholders. It groups the continuous discount variable into three clear tiers and reports the number of transactions, average units sold, average revenue, and total revenue for each group. This makes the tradeoff between discount depth and sales performance easier to understand without requiring a statistical background.
+
 
 ## Interactive App
 
@@ -576,4 +604,4 @@ The Shiny app should be deployed to shinyapps.io using the `app.R` and `Retail_s
 
 ## Clickable URL of the Shiny App
 
-> **TODO (Jake):** Deploy `discount-explorer/app.R` to shinyapps.io and replace this line with the live URL, e.g. `https://jakevns.shinyapps.io/discount-explorer/`
+[https://o7gye8-jake-evans.shinyapps.io/discount-explorer/](https://o7gye8-jake-evans.shinyapps.io/discount-explorer/)
