@@ -1,0 +1,1048 @@
+---
+title: "Reflection on Regression and Classification Models with Group Project Data"
+subtitle: "Analytics Objective: Predict Retail Sales Revenue from Discounting, Marketing, and Seasonal Factors"
+author: "Jake Evans"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 4
+    toc-expand: 1
+    toc-location: right-body
+    toc-title: "Contents"
+    number-sections: true
+    code-fold: show
+    code-tools: true
+    theme: cosmo
+    highlight-style: github
+    df-print: kable
+    embed-resources: true
+execute:
+  warning: false
+  message: false
+  freeze: true
+---
+
+# Overview {.unnumbered}
+
+> **Prompt:** *Apply what you learned from Step 1–Step 3 (regression-focused methods and classification models) to your group project data. State your Analytics Objective (AO), work through the full machine learning process for your chosen method, compare alternative methods, produce a variable importance chart, and address the reflection questions at the end of the relevant codebook.*
+
+This report applies the **regression methods** from Module 4—including Ridge, Lasso, Elastic Net, Polynomial Regression, and hyperparameter tuning—to the IBM 6540 group project dataset. Seis Leches (Group 1) has been using the Kaggle **Retail Sales Data with Seasonal Trends and Marketing** dataset[^1] for our project, *“Analyzing the Effect of Discounts on Retail Sales Volume and Revenue Using Seasonal Retail Data.”* Since this is an **individual reflection assignment**, the data comes from our shared group repository, but this QMD file and its rendered HTML are stored in my personal GitHub repository (`jakevns/RStudio`). I also followed the same `data/Retail_sales.csv` file structure that I used for my M10 dashboard assignment.
+
+[^1]: Abdullah0a. *Retail Sales Data with Seasonal Trends and Marketing* (version 1). Kaggle. <https://www.kaggle.com/datasets/abdullah0a/retail-sales-data-with-seasonal-trends-and-marketing/versions/1>
+
+> **A note on my approach:** Rather than repeating the CLV example from the codebook, I built every model, recipe, and interpretation below using our group project dataset. This keeps the analysis focused on our actual research objective and makes the results more relevant to the work Group 1 is already completing.
+
+
+---
+
+# Analytics Objective (AO) {#sec-ao}
+
+> **Prompt:** *State your AO for your project. If your AO didn't involve machine learning, revise it so it is appropriately stated for a machine learning task. Describe: (1) supervised vs. unsupervised learning, (2) the variables to be included and their roles, and (3) the broader category of machine learning method (regression vs. classification).*
+
+## Revised Analytics Objective
+
+Our group’s original project framing—*“analyzing the effect of discounts on retail sales volume and revenue”*—was more focused on hypothesis testing than prediction. For this assignment, I reframed it as a clear **machine learning objective**:
+
+> **Analytics Objective:** Predict a retail transaction’s **Sales Revenue (USD)** using the discount percentage, marketing spend, product category, day of the week, season, and holiday status. This would help store planners estimate how a proposed discount or marketing budget may translate into revenue *before* a promotion launches, rather than only measuring its impact afterward.
+
+This keeps the group's original discount/marketing focus but reframes it as a **prediction problem with a clear, continuous target**, which is what makes it usable as a supervised machine learning task.
+
+## Supervised or Unsupervised?
+
+This is a **supervised learning** problem because every row already includes a known value for `Sales Revenue (USD)`. The model can learn from these labeled examples, where the predictors are paired with an observed outcome, and its predictions can then be compared with the actual revenue values in a held-out test set.
+
+## Variables and Their Roles
+
+| Variable (raw) | Role | Type | Included? | Rationale |
+|---|---|---|---|---|
+| `Sales Revenue (USD)` | **Outcome (target)** | Continuous | ✅ | What we want to predict |
+| `Discount Percentage` | Feature | Numeric | ✅ | Core lever in our group's discount question |
+| `Marketing Spend (USD)` | Feature | Numeric | ✅ | Core lever in our group's marketing question |
+| `Product Category` | Feature | Categorical (4 levels) | ✅ | Category-level demand differences |
+| `Day of the Week` | Feature | Categorical (7 levels) | ✅ | Weekly seasonality |
+| `Holiday Effect` | Feature | Categorical (binary) | ✅ | Holiday demand lift |
+| `Date` | Engineered → Feature | Derived to `Month` | ✅ (derived) | Captures yearly seasonality without treating each of the 731 unique dates as its own category |
+| `Units Sold` | *Excluded* | Numeric | ❌ | Revenue is mechanically driven by units sold (Revenue ≈ Units × Price); including it would leak the answer and defeat the purpose of predicting revenue *before* a promotion runs |
+| `Store ID` | *Excluded* | ID | ❌ | Constant across all 30,000 rows in this dataset (only one store), so it carries zero variance |
+| `Product ID` | *Excluded* | ID | ❌ | 42 near-unique codes that are already summarized by `Product Category`; including both would be redundant |
+| `Store Location` | *Excluded* | Categorical (243 levels) | ❌ | Far too high-cardinality relative to the sample to encode meaningfully (would explode into 242 dummy columns), and it does not correspond to a stable notion of "location" for a single-store dataset |
+
+## Broader Category of Machine Learning Method
+
+Because the outcome, `Sales Revenue (USD)`, is **continuous**, this is a **regression-focused** problem, not classification. I am using the **Module 4 — Regression-Focused Methods** codebook[^2] as the reference for the full workflow below.
+
+[^2]: Jung, J. *Module 4 — Regression-Focused Methods*. <https://jaejungca.github.io/regression-models/m04_regression_models.html>
+
+::: {.callout-tip title="Why regression and not classification here"}
+Our group project dataset does not include a natural or meaningful class label like the purchase categories used in the classification codebook’s e-commerce example. Since sales revenue is already measured as a dollar amount, treating it as a continuous outcome preserves more information than forcing it into artificial categories such as “high,” “medium,” or “low.” This makes regression the more accurate and honest way to frame the business question.
+:::
+
+---
+
+# Setup
+
+```{r}
+#| label: setup
+
+# install.packages(c("tidymodels", "tidyverse", "glmnet", "patchwork",
+#                     "janitor", "lubridate", "gt", "ggrepel"))
+
+# vip is no longer on CRAN directly -- install from the archived source once:
+# install.packages(
+#   "https://cran.r-project.org/src/contrib/Archive/vip/vip_0.4.6.tar.gz",
+#   repos = NULL,
+#   type = "source"
+# )
+
+library(tidymodels)
+library(tidyverse)
+library(glmnet)     # Ridge, Lasso, Elastic Net engine
+library(patchwork)  # combining plots
+library(vip)        # variable importance plots
+library(janitor)    # clean_names()
+library(lubridate)  # date handling
+library(gt)         # publication-quality tables
+
+tidymodels_prefer()
+set.seed(2025)
+```
+
+---
+
+# The Group Project Dataset
+
+## Data Import and Cleaning
+
+The QMD searches for `data/Retail_sales.csv` relative to the project folder, matching the group repo's file structure.
+
+```{r}
+#| label: load-data
+
+sales_raw <- read_csv("data/Retail_sales.csv", show_col_types = FALSE) |>
+  clean_names()
+
+glimpse(sales_raw)
+```
+
+## Feature Engineering
+
+I created a `month` variable from `date` to capture seasonal patterns without treating all 731 individual calendar dates as separate categories. I also converted the remaining categorical variables to factors so the models would handle them correctly.
+
+```{r}
+#| label: feature-engineering
+
+sales_data <- sales_raw |>
+  mutate(
+    date = ymd(date),
+    month = factor(month(date, label = TRUE), ordered = FALSE),
+    product_category = factor(product_category),
+    day_of_the_week = factor(
+      day_of_the_week,
+      levels = c(
+        "Monday", "Tuesday", "Wednesday", "Thursday",
+        "Friday", "Saturday", "Sunday"
+      )
+    ),
+    holiday_effect = factor(holiday_effect, levels = c("False", "True"))
+  )
+
+sales_model_data <- sales_data |>
+  select(
+    sales_revenue_usd,
+    discount_percentage,
+    marketing_spend_usd,
+    product_category,
+    day_of_the_week,
+    holiday_effect,
+    month
+  )
+
+glimpse(sales_model_data)
+```
+
+## Exploratory Data Analysis
+
+::: {.panel-tabset}
+
+## Outcome Distribution
+
+```{r}
+#| label: eda-outcome
+
+p1 <- ggplot(sales_model_data, aes(x = sales_revenue_usd)) +
+  geom_histogram(bins = 40, fill = "#154734", color = "white", alpha = 0.85) +
+  labs(
+    title = "Distribution of Sales Revenue",
+    x = "Sales revenue ($)", y = "Count"
+  ) +
+  theme_minimal(base_size = 11)
+
+p2 <- ggplot(sales_model_data, aes(x = discount_percentage, y = sales_revenue_usd)) +
+  geom_jitter(alpha = 0.05, color = "#154734", width = 1) +
+  geom_smooth(method = "lm", color = "#B08D57", se = FALSE) +
+  labs(
+    title = "Revenue vs. Discount Percentage",
+    x = "Discount (%)", y = "Sales revenue ($)"
+  ) +
+  theme_minimal(base_size = 11)
+
+p1 + p2
+```
+
+## Revenue by Category
+
+```{r}
+#| label: eda-category
+
+sales_model_data |>
+  group_by(product_category) |>
+  summarise(
+    n = n(),
+    mean_revenue = round(mean(sales_revenue_usd)),
+    median_revenue = round(median(sales_revenue_usd)),
+    sd_revenue = round(sd(sales_revenue_usd))
+  ) |>
+  arrange(desc(mean_revenue)) |>
+  gt() |>
+  tab_header(title = "Sales Revenue by Product Category")
+```
+
+## Revenue vs. Marketing Spend
+
+```{r}
+#| label: eda-marketing
+
+ggplot(sales_model_data, aes(x = marketing_spend_usd, y = sales_revenue_usd)) +
+  geom_point(alpha = 0.1, color = "#154734") +
+  geom_smooth(method = "loess", color = "#4F8A8B", se = FALSE) +
+  labs(
+    title = "Revenue vs. Marketing Spend",
+    subtitle = "LOESS smoother — is the relationship a straight line?",
+    x = "Marketing spend ($)", y = "Sales revenue ($)"
+  ) +
+  theme_minimal(base_size = 11)
+```
+
+## Seasonality
+
+```{r}
+#| label: eda-season
+
+sales_model_data |>
+  group_by(month) |>
+  summarise(mean_revenue = mean(sales_revenue_usd)) |>
+  ggplot(aes(x = month, y = mean_revenue, group = 1)) +
+  geom_line(color = "#154734", linewidth = 1) +
+  geom_point(color = "#B08D57", size = 2) +
+  labs(
+    title = "Average Sales Revenue by Month",
+    x = NULL, y = "Mean sales revenue ($)"
+  ) +
+  theme_minimal(base_size = 11) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+:::
+
+::: {.callout-note title="What the EDA suggests"}
+Revenue appears to have a mostly linear relationship with both discount percentage and marketing spend. However, the LOESS curve for marketing spend begins to flatten at higher spending levels, which suggests a possible diminishing-returns effect. This provides a reason to test **polynomial terms** for `discount_percentage` and `marketing_spend_usd` later in the report (@sec-poly), similar to how the codebook tested nonlinear relationships for `freq_purchases` and `tenure_months`.
+
+:::
+
+---
+
+# Train/Test Split and Shared Recipe {#sec-recipe}
+
+## Why This Method Is a Good Starting Point
+
+> **Prompt:** *Pick a machine learning method and explain why the method would be the best.*
+
+I start with **Lasso-family regularized linear regression** (Ridge → Lasso → Elastic Net) as the core method family, for three reasons specific to this dataset:
+
+1. **Mixed predictor types.** After dummy-coding `product_category` with 4 levels, `day_of_the_week` with 7 levels, `holiday_effect`, and `month` with 12 levels, the design matrix expands to more than 20 columns from a relatively small set of original concepts. Regularization helps keep the model from overfitting to random noise in any one dummy variable.
+
+2. **Some predictors are likely more useful than others.** It is reasonable to expect that only a few months or product categories carry most of the seasonal signal, while others add very little. This is exactly where **Lasso’s automatic variable selection** becomes valuable because it can shrink weaker predictors to zero, while ordinary least squares keeps every predictor in the model regardless of how much it contributes.
+
+3. **A realistic nonlinear relationship may be present.** The EDA suggests that marketing spend may have diminishing returns, which is why I also fit a **Polynomial + Lasso** model later in the report (@sec-poly). Polynomial regression is still linear in its coefficients, so it fits naturally within the same regularized regression framework.
+
+## Split
+
+```{r}
+#| label: split
+
+set.seed(617)
+sales_split <- initial_split(sales_model_data, prop = 0.80, strata = sales_revenue_usd)
+sales_train <- training(sales_split)
+sales_test  <- testing(sales_split)
+
+cat("Training rows:", nrow(sales_train), "\n")
+cat("Test rows    :", nrow(sales_test), "\n")
+cat("Mean revenue (train): $", round(mean(sales_train$sales_revenue_usd)), "\n")
+cat("Mean revenue (test) : $", round(mean(sales_test$sales_revenue_usd)), "\n")
+```
+
+## Shared Recipe
+
+All models use the same preprocessing recipe, so any differences in performance can be attributed to the models themselves rather than inconsistent feature engineering.
+
+```{r}
+#| label: recipe
+
+sales_rec <- recipe(sales_revenue_usd ~ ., data = sales_train) |>
+  step_impute_median(all_numeric_predictors()) |>
+  step_normalize(all_numeric_predictors()) |>
+  step_dummy(all_nominal_predictors()) |>
+  step_zv(all_predictors())
+
+sales_rec
+```
+
+```{r}
+#| label: prep-inspect
+
+sales_prep <- prep(sales_rec)
+tidy(sales_prep)
+```
+
+---
+
+# The Full Machine Learning Process {#sec-pipeline}
+
+> **Prompt:** *Go through the entire machine learning process for your AO according to the process explained in the codebook — data splitting, recipe creation, model specification, model fitting, and model evaluation. Interpret the results.*
+
+Data splitting and the shared recipe are complete (@sec-recipe). The rest of this section walks through model specification, fitting, and evaluation for the baseline model, then each alternative in turn.
+
+## Baseline — OLS Linear Regression
+
+Ordinary least squares (OLS) minimizes the residual sum of squares:
+
+$$RSS = \sum_{i=1}^{n}(y_i - \hat{y}_i)^2$$
+
+```{r}
+#| label: lm-fit
+
+lm_spec <- linear_reg() |>
+  set_engine("lm")
+
+lm_wf <- workflow() |>
+  add_recipe(sales_rec) |>
+  add_model(lm_spec)
+
+lm_fit <- fit(lm_wf, data = sales_train)
+
+lm_coefs <- lm_fit |>
+  extract_fit_parsnip() |>
+  tidy() |>
+  filter(term != "(Intercept)") |>
+  arrange(desc(abs(estimate)))
+
+lm_coefs |> gt() |> tab_header(title = "OLS Coefficients")
+```
+
+```{r}
+#| label: lm-metrics
+
+lm_preds <- augment(lm_fit, new_data = sales_test)
+lm_metrics <- lm_preds |>
+  metric_set(rmse, rsq, mae)(truth = sales_revenue_usd, estimate = .pred)
+
+lm_metrics |> gt()
+```
+
+```{r}
+#| label: lm-resid-plot
+
+ggplot(lm_preds, aes(x = .pred, y = sales_revenue_usd - .pred)) +
+  geom_point(alpha = 0.1, color = "#154734") +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "#B08D57") +
+  labs(
+    title = "OLS — Residuals vs. Fitted",
+    x = "Predicted sales revenue ($)", y = "Residual ($)"
+  ) +
+  theme_minimal(base_size = 12)
+```
+
+**Interpretation:** On the test set, the baseline OLS model achieves an RMSE of `r round(lm_metrics$.estimate[lm_metrics$.metric == "rmse"], 2)` and an R² of `r round(lm_metrics$.estimate[lm_metrics$.metric == "rsq"], 3)`. The coefficient with the largest absolute value is `r lm_coefs$term[1]`, making it a reasonable starting point for identifying the strongest drivers of revenue. However, as the codebook explains, OLS assigns every predictor a nonzero coefficient whether or not it adds meaningful value, which is exactly the issue regularization is designed to address.
+
+
+## Ridge Regression
+
+$$\text{Ridge loss} = RSS + \lambda \sum_{j=1}^{p} \beta_j^2$$
+
+```{r}
+#| label: ridge-fit
+
+ridge_spec <- linear_reg(penalty = 0.1, mixture = 0) |>
+  set_engine("glmnet")
+
+ridge_wf <- workflow() |>
+  add_recipe(sales_rec) |>
+  add_model(ridge_spec)
+
+ridge_fit <- fit(ridge_wf, data = sales_train)
+
+ridge_fit |>
+  extract_fit_parsnip() |>
+  tidy() |>
+  filter(term != "(Intercept)") |>
+  arrange(desc(abs(estimate))) |>
+  gt() |>
+  tab_header(title = "Ridge Coefficients (\u03bb = 0.1)")
+```
+
+```{r}
+#| label: ridge-metrics
+
+ridge_preds <- augment(ridge_fit, new_data = sales_test)
+ridge_metrics <- ridge_preds |>
+  metric_set(rmse, rsq, mae)(truth = sales_revenue_usd, estimate = .pred)
+
+ridge_metrics |> gt()
+```
+
+## Lasso Regression
+
+$$\text{Lasso loss} = RSS + \lambda \sum_{j=1}^{p} |\beta_j|$$
+
+```{r}
+#| label: lasso-fit
+
+lasso_spec <- linear_reg(penalty = 0.1, mixture = 1) |>
+  set_engine("glmnet")
+
+lasso_wf <- workflow() |>
+  add_recipe(sales_rec) |>
+  add_model(lasso_spec)
+
+lasso_fit <- fit(lasso_wf, data = sales_train)
+
+lasso_fit |>
+  extract_fit_parsnip() |>
+  tidy() |>
+  filter(term != "(Intercept)") |>
+  arrange(desc(abs(estimate))) |>
+  mutate(selected = if_else(estimate != 0, "\u2713 kept", "\u2717 zeroed")) |>
+  gt() |>
+  tab_header(title = "Lasso Coefficients (\u03bb = 0.1)")
+```
+
+```{r}
+#| label: lasso-metrics
+
+lasso_preds <- augment(lasso_fit, new_data = sales_test)
+lasso_metrics <- lasso_preds |>
+  metric_set(rmse, rsq, mae)(truth = sales_revenue_usd, estimate = .pred)
+
+lasso_metrics |> gt()
+```
+
+```{r}
+#| label: lasso-path
+
+lasso_fit |>
+  extract_fit_engine() |>
+  autoplot() +
+  labs(
+    title = "Lasso Coefficient Path",
+    subtitle = "As penalty (\u03bb) increases, more coefficients are driven to zero",
+    x = "Log(\u03bb)", y = "Coefficient value"
+  ) +
+  theme_minimal(base_size = 12)
+```
+
+## Elastic Net
+
+$$\min_{\beta} \left\{ \frac{1}{2n} \sum_{i=1}^{n} \left( y_i - \beta_0 - \sum_{j=1}^{p} x_{ij} \beta_j \right)^2 + \lambda \left[ \frac{1 - \alpha}{2} \sum_{j=1}^{p} \beta_j^2 + \alpha \sum_{j=1}^{p} |\beta_j| \right] \right\}$$
+
+```{r}
+#| label: enet-fit
+
+enet_spec <- linear_reg(penalty = 0.1, mixture = 0.5) |>
+  set_engine("glmnet")
+
+enet_wf <- workflow() |>
+  add_recipe(sales_rec) |>
+  add_model(enet_spec)
+
+enet_fit <- fit(enet_wf, data = sales_train)
+
+enet_preds <- augment(enet_fit, new_data = sales_test)
+enet_metrics <- enet_preds |>
+  metric_set(rmse, rsq, mae)(truth = sales_revenue_usd, estimate = .pred)
+
+enet_metrics |> gt()
+```
+
+## Polynomial Regression {#sec-poly}
+
+The EDA suggested that `marketing_spend_usd` may have a diminishing-returns relationship with revenue. To test this possibility, I use `step_poly()` to add polynomial terms for both `discount_percentage` and `marketing_spend_usd`. I then fit the model with Lasso so any polynomial terms that do not improve the predictions can be automatically shrunk to zero.
+
+```{r}
+#| label: poly-viz
+
+p5 <- ggplot(sales_train, aes(x = discount_percentage, y = sales_revenue_usd)) +
+  geom_jitter(alpha = 0.05, color = "#154734", width = 1) +
+  geom_smooth(method = "lm", color = "#B08D57", se = FALSE, linetype = "dashed") +
+  geom_smooth(method = "loess", color = "#4F8A8B", se = FALSE) +
+  labs(
+    title = "Revenue vs. Discount",
+    subtitle = "Dashed = linear | Solid = LOESS",
+    x = "Discount (%)", y = "Sales revenue ($)"
+  ) +
+  theme_minimal(base_size = 11)
+
+p6 <- ggplot(sales_train, aes(x = marketing_spend_usd, y = sales_revenue_usd)) +
+  geom_point(alpha = 0.05, color = "#154734") +
+  geom_smooth(method = "lm", color = "#B08D57", se = FALSE, linetype = "dashed") +
+  geom_smooth(method = "loess", color = "#4F8A8B", se = FALSE) +
+  labs(
+    title = "Revenue vs. Marketing Spend",
+    subtitle = "Does the relationship flatten out?",
+    x = "Marketing spend ($)", y = "Sales revenue ($)"
+  ) +
+  theme_minimal(base_size = 11)
+
+p5 + p6
+```
+
+```{r}
+#| label: poly-fit
+
+poly_rec <- recipe(sales_revenue_usd ~ ., data = sales_train) |>
+  step_impute_median(all_numeric_predictors()) |>
+  step_poly(discount_percentage, marketing_spend_usd, degree = 2) |>
+  step_normalize(all_numeric_predictors()) |>
+  step_dummy(all_nominal_predictors()) |>
+  step_zv(all_predictors())
+
+poly_wf <- workflow() |>
+  add_recipe(poly_rec) |>
+  add_model(lasso_spec)
+
+poly_fit <- fit(poly_wf, data = sales_train)
+
+poly_preds <- augment(poly_fit, new_data = sales_test)
+poly_metrics <- poly_preds |>
+  metric_set(rmse, rsq, mae)(truth = sales_revenue_usd, estimate = .pred)
+
+poly_metrics |> gt()
+```
+
+::: {.callout-note title="Why Polynomial + Lasso, not a new model family"}
+Polynomial regression is still linear *in the coefficients*. By adding terms such as `discount_percentage^2` and `marketing_spend_usd^2` as new predictor columns, `linear_reg()` can capture curved relationships while remaining within the same regularized regression framework used for Ridge, Lasso, and Elastic Net.
+:::
+
+## Tuning the Penalty
+
+Rather than choosing `penalty = 0.1` arbitrarily, I test a grid of 30 penalty values spaced on a logarithmic scale. I then use 10-fold cross-validation to identify the value that produces the lowest RMSE.
+
+```{r}
+#| label: tune-setup
+
+lasso_tune_spec <- linear_reg(penalty = tune(), mixture = 1) |>
+  set_engine("glmnet")
+
+lasso_tune_wf <- workflow() |>
+  add_recipe(sales_rec) |>
+  add_model(lasso_tune_spec)
+
+set.seed(2025)
+sales_folds <- vfold_cv(sales_train, v = 10, strata = sales_revenue_usd)
+
+penalty_grid <- grid_regular(
+  penalty(range = c(-4, 1)),
+  levels = 30
+)
+```
+
+```{r}
+#| label: tune-grid
+
+set.seed(2025)
+lasso_tune_results <- tune_grid(
+  lasso_tune_wf,
+  resamples = sales_folds,
+  grid = penalty_grid,
+  metrics = metric_set(rmse, rsq, mae)
+)
+
+autoplot(lasso_tune_results) +
+  labs(
+    title = "Lasso Tuning \u2014 RMSE and R\u00b2 Across Penalty Values",
+    subtitle = "Each point = 10-fold CV mean; shaded band = \u00b1 1 SE"
+  ) +
+  theme_minimal(base_size = 12)
+```
+
+```{r}
+#| label: select-best
+
+best_penalty <- select_best(lasso_tune_results, metric = "rmse")
+best_penalty_1se <- select_by_one_std_err(lasso_tune_results, metric = "rmse", desc(penalty))
+
+best_penalty |> gt() |> tab_header(title = "Best Penalty (min. RMSE)")
+best_penalty_1se |> gt() |> tab_header(title = "Best Penalty (1-SE Rule)")
+```
+
+```{r}
+#| label: finalize
+
+final_lasso_wf <- finalize_workflow(lasso_tune_wf, best_penalty)
+final_lasso_fit <- fit(final_lasso_wf, data = sales_train)
+
+final_preds <- augment(final_lasso_fit, new_data = sales_test)
+final_metrics <- final_preds |>
+  metric_set(rmse, rsq, mae)(truth = sales_revenue_usd, estimate = .pred)
+
+final_metrics |> gt()
+```
+
+```{r}
+#| label: tuned-coefs
+
+final_lasso_fit |>
+  extract_fit_parsnip() |>
+  tidy() |>
+  filter(term != "(Intercept)") |>
+  arrange(desc(abs(estimate))) |>
+  mutate(selected = if_else(estimate != 0, "\u2713 kept", "\u2717 zeroed")) |>
+  gt() |>
+  tab_header(title = "Tuned Lasso Coefficients")
+```
+
+---
+
+# Comparing All Models {#sec-compare}
+
+> **Prompt:** *What alternative methods can you try to improve the metrics produced above? Try them. Compare all methods you tried using 10-fold cross-validation. Interpret the results. Which one is the best? Does it make sense? Why or why not?*
+
+Beyond the OLS baseline, I tested **four alternative models**: Ridge, Lasso, Elastic Net, and Polynomial + Lasso. I also included a **tuned Lasso** model, where the penalty was selected through cross-validation rather than chosen manually. All six models are compared below using the same evaluation criteria.
+
+## Cross-Validated Comparison
+
+```{r}
+#| label: cv-compare
+
+cv_metrics <- function(wf, label) {
+  fit_resamples(
+    wf,
+    resamples = sales_folds,
+    metrics = metric_set(rmse, rsq, mae)
+  ) |>
+    collect_metrics() |>
+    mutate(model = label)
+}
+
+lm_cv    <- cv_metrics(lm_wf, "OLS Linear")
+ridge_cv <- cv_metrics(ridge_wf, "Ridge (\u03bb=0.1)")
+lasso_cv <- cv_metrics(lasso_wf, "Lasso (\u03bb=0.1)")
+enet_cv  <- cv_metrics(enet_wf, "Elastic Net (\u03bb=0.1)")
+poly_cv  <- cv_metrics(poly_wf, "Polynomial + Lasso")
+tuned_cv <- cv_metrics(final_lasso_wf, "Lasso (tuned)")
+
+all_cv <- bind_rows(lm_cv, ridge_cv, lasso_cv, enet_cv, poly_cv, tuned_cv)
+
+cv_rmse_table <- all_cv |>
+  filter(.metric == "rmse") |>
+  select(model, mean, std_err) |>
+  arrange(mean)
+
+cv_rmse_table |> gt() |> tab_header(title = "10-Fold CV RMSE \u2014 All Regression Models")
+```
+
+```{r}
+#| label: cv-plot
+
+all_cv |>
+  filter(.metric == "rmse") |>
+  ggplot(aes(x = reorder(model, mean), y = mean)) +
+  geom_col(fill = "#154734", alpha = 0.85) +
+  geom_errorbar(
+    aes(ymin = mean - std_err, ymax = mean + std_err),
+    width = 0.3, color = "#B08D57", linewidth = 0.8
+  ) +
+  coord_flip() +
+  labs(
+    title = "10-Fold CV RMSE \u2014 All Regression Models",
+    subtitle = "Error bars show \u00b1 1 standard error | Lower RMSE = better",
+    x = NULL, y = "Mean RMSE ($)"
+  ) +
+  theme_minimal(base_size = 12)
+```
+
+## Test Set Performance Summary
+
+```{r}
+#| label: test-compare
+
+test_summary <- bind_rows(
+  lm_metrics |> mutate(model = "OLS Linear"),
+  ridge_metrics |> mutate(model = "Ridge (\u03bb=0.1)"),
+  lasso_metrics |> mutate(model = "Lasso (\u03bb=0.1)"),
+  enet_metrics |> mutate(model = "Elastic Net"),
+  poly_metrics |> mutate(model = "Polynomial + Lasso"),
+  final_metrics |> mutate(model = "Lasso (tuned)")
+) |>
+  filter(.metric %in% c("rmse", "rsq")) |>
+  select(model, .metric, .estimate) |>
+  pivot_wider(names_from = .metric, values_from = .estimate) |>
+  arrange(rmse)
+
+test_summary |> gt() |> tab_header(title = "Test Set Performance \u2014 All Models")
+```
+
+```{r}
+#| label: best-model-name
+
+best_model_row  <- cv_rmse_table |> slice(1)
+best_model_name <- best_model_row$model
+best_model_rmse <- round(best_model_row$mean, 2)
+worst_model_row <- cv_rmse_table |> slice(n())
+```
+
+```{r}
+#| label: memory-cleanup-1
+#| include: false
+
+# Free memory: these individual model/prediction objects were only needed
+# to build the comparison tables above and are not referenced again.
+rm(
+  lm_fit, ridge_fit, lasso_fit, enet_fit, poly_fit,
+  lm_preds, ridge_preds, lasso_preds, enet_preds, poly_preds, final_preds,
+  lm_wf, ridge_wf, lasso_wf, enet_wf, poly_wf,
+  lasso_tune_wf, lasso_tune_spec, lasso_tune_results, penalty_grid,
+  lm_cv, ridge_cv, lasso_cv, enet_cv, poly_cv, tuned_cv, all_cv
+)
+gc()
+```
+
+## Interpretation
+
+> Based on the cross-validated results above, `r best_model_name` produced the lowest mean RMSE (`r best_model_rmse`) of the models tried.
+
+A few things I looked for when comparing, following the codebook's guidance:
+
+* **OLS vs. regularized models:** If a regularized model produces a lower test RMSE than OLS, that would suggest OLS was slightly overfitting the dummy-coded categorical predictors, including product category, day of the week, and month. If the regularized models perform about the same as OLS, it would indicate that the predictor set is small enough, and the signal strong enough, that overfitting was not a major concern.
+
+* **Ridge vs. Lasso:** Several categorical dummy variables, such as individual months or days of the week, may add little independent value once discount percentage and marketing spend are included. Because of this, I expected Lasso’s ability to shrink weaker coefficients all the way to zero to be more useful than Ridge’s more even shrinkage. The coefficient tables above help show whether that expectation was supported.
+
+* **Manual vs. tuned Lasso:** The tuned Lasso should perform at least as well as the manually selected `penalty = 0.1` model. If tuning does not produce a meaningful improvement, that would suggest `0.1` was already a reasonable penalty value for this dataset.
+
+* **Polynomial model:** If Polynomial + Lasso does not clearly outperform the linear-only Lasso, the apparent diminishing-returns pattern in the marketing-spend scatterplot may be weaker than it first appeared. It may also mean that the added polynomial terms do not provide enough useful information to improve out-of-sample predictions.
+
+**Does the winner make sense?** `r best_model_name` being the top-performing model fits the overall pattern in this dataset. Discount percentage and marketing spend appear to be the strongest continuous drivers of revenue, while the seasonal, product-category, and day-of-week variables provide smaller adjustments. A well-tuned regularized model is designed to preserve the stronger predictors while shrinking or removing weaker ones. The cross-validation standard errors were also fairly similar across most of the six models, which suggests that “best” may mean only slightly better than several close competitors rather than a dramatic winner. This is similar to the pattern the codebook found with the CLV dataset.
+
+---
+
+# Variable Importance {#sec-vip}
+
+> **Prompt:** *Produce a chart that shows the importance of features. Is the result reasonable? Why or why not?*
+
+```{r}
+#| label: vip
+
+final_lasso_fit |>
+  extract_fit_parsnip() |>
+  vip(
+    num_features = 15,
+    aesthetics = list(fill = "#154734", color = "white", alpha = 0.85)
+  ) +
+  labs(
+    title = "Variable Importance \u2014 Tuned Lasso",
+    subtitle = "Importance based on absolute standardized coefficient magnitude",
+    x = "Importance"
+  ) +
+  theme_minimal(base_size = 12)
+```
+
+**Is this reasonable?** `discount_percentage` and `marketing_spend_usd` are the two variables at the center of our group project, so seeing them rank near the top would support our original research question. If a specific `product_category` or `month` dummy also appears highly important, that would still make sense because some categories or seasons may have higher average prices or stronger demand regardless of discount or marketing activity. The key point for a marketing manager is that importance here reflects standardized coefficient magnitude, **not** causation. For example, an important month variable may capture a seasonal demand shift rather than something the business can directly control.
+
+---
+
+# Reflection Questions (Module 4 Exercises, Applied to Our Data) {#sec-exercises}
+
+> **Prompt:** *Address the reflection questions at the end of the Module 4 codebook, using your own data set to solve your objective.*
+
+The Module 4 codebook closes with five structured exercises. Below, each is answered using our own retail sales data rather than the CLV example.
+
+## Exercise 4.1 — Ridge vs. Lasso Coefficient Behavior
+
+> Fit Ridge (`mixture = 0`) and Lasso (`mixture = 1`) with an identical, large penalty of `penalty = 10`. Compare the number of zeroed coefficients, pick one predictor Lasso zeroes but Ridge does not, and explain to a marketing manager why Lasso might be preferred with many predictors.
+
+```{r}
+#| label: ex4-1
+
+ridge_big_spec <- linear_reg(penalty = 10, mixture = 0) |> set_engine("glmnet")
+lasso_big_spec <- linear_reg(penalty = 10, mixture = 1) |> set_engine("glmnet")
+
+ridge_big_fit <- fit(
+  workflow() |> add_recipe(sales_rec) |> add_model(ridge_big_spec),
+  data = sales_train
+)
+lasso_big_fit <- fit(
+  workflow() |> add_recipe(sales_rec) |> add_model(lasso_big_spec),
+  data = sales_train
+)
+
+ridge_big_coefs <- ridge_big_fit |> extract_fit_parsnip() |> tidy() |>
+  filter(term != "(Intercept)") |> rename(ridge_estimate = estimate) |> select(term, ridge_estimate)
+lasso_big_coefs <- lasso_big_fit |> extract_fit_parsnip() |> tidy() |>
+  filter(term != "(Intercept)") |> rename(lasso_estimate = estimate) |> select(term, lasso_estimate)
+
+compare_big <- ridge_big_coefs |>
+  left_join(lasso_big_coefs, by = "term") |>
+  left_join(lm_coefs |> rename(ols_estimate = estimate) |> select(term, ols_estimate), by = "term") |>
+  mutate(
+    ridge_zero = ridge_estimate == 0,
+    lasso_zero = lasso_estimate == 0
+  ) |>
+  arrange(desc(abs(ols_estimate)))
+
+compare_big |> gt() |> tab_header(title = "Ridge vs. Lasso at penalty = 10")
+
+n_ridge_zero <- sum(compare_big$ridge_zero)
+n_lasso_zero <- sum(compare_big$lasso_zero)
+
+cat("Zero coefficients \u2014 Ridge:", n_ridge_zero, " | Lasso:", n_lasso_zero, "\n")
+```
+
+```{r}
+#| label: memory-cleanup-2
+#| include: false
+
+rm(ridge_big_fit, lasso_big_fit, ridge_big_spec, lasso_big_spec)
+gc()
+```
+
+**1. How many coefficients are exactly zero in each model?** At `penalty = 10`, Ridge reduced `r n_ridge_zero` coefficient(s) to exactly zero, while Lasso reduced `r n_lasso_zero` to zero. This matches the theory: Ridge’s L2 penalty shrinks coefficients toward zero but rarely makes them exactly zero, while Lasso’s L1 penalty is designed to produce exact zeros as the penalty increases.
+
+**2. What happens when Lasso removes a predictor but Ridge keeps it?** The table above includes terms where `lasso_zero = TRUE` and `ridge_zero = FALSE`. For these predictors, Ridge reduced the coefficient relative to its OLS value but kept a small nonzero estimate, while Lasso removed it entirely. This demonstrates Ridge’s tendency to shrink every predictor and Lasso’s ability to either keep or drop weaker predictors.
+
+**3. How would I explain this to a marketing manager?** With several dummy-coded predictors for product category, day of the week, and month, Lasso is useful because it produces a shorter and more focused list of factors associated with revenue. This is easier to interpret than a model that assigns a nonzero coefficient to every predictor, even when some effects are extremely small or mostly noise. A manager can focus on the variables Lasso retains rather than trying to make decisions based on every category, month, and day-of-week coefficient.
+
+## Exercise 4.2 — Elastic Net Mixing Parameter
+
+> Fit three Elastic Net models with `penalty = 0.1` and `mixture` values of 0.25, 0.50, and 0.75. Compare nonzero coefficients and test RMSE.
+
+```{r}
+#| label: ex4-2
+
+fit_enet_mix <- function(mix) {
+  spec <- linear_reg(penalty = 0.1, mixture = mix) |> set_engine("glmnet")
+  wf <- workflow() |> add_recipe(sales_rec) |> add_model(spec)
+  fit_obj <- fit(wf, data = sales_train)
+
+  coefs <- fit_obj |> extract_fit_parsnip() |> tidy() |> filter(term != "(Intercept)")
+  n_nonzero <- sum(coefs$estimate != 0)
+
+  preds <- augment(fit_obj, new_data = sales_test)
+  rmse_val <- preds |> rmse(truth = sales_revenue_usd, estimate = .pred) |> pull(.estimate)
+
+  tibble(mixture = mix, n_nonzero = n_nonzero, test_rmse = rmse_val)
+}
+
+enet_mix_results <- map_dfr(c(0.25, 0.50, 0.75), fit_enet_mix)
+
+enet_mix_results |> gt() |> tab_header(title = "Elastic Net Mixture Comparison (\u03bb = 0.1)")
+```
+
+**1. What happens to the number of nonzero coefficients as mixture increases from 0.25 to 0.75?** As `mixture` increases, the penalty places more weight on the L1, or Lasso, component. This generally reduces the number of nonzero coefficients, although the count may remain unchanged when the retained predictors have strong enough signals. The table above shows how this pattern appears in our dataset.
+
+**2. Which mixture produces the best test RMSE, and is the difference meaningful?** The mixture value with the lowest `test_rmse` is the best performer. However, because the cross-validation standard errors were fairly similar across the models in @sec-compare, a small difference in RMSE may not be practically meaningful. The improvement should be compared with the 10-fold cross-validation uncertainty before concluding that one mixture is clearly better.
+
+**3. When might Elastic Net outperform pure Lasso in this dataset?** `discount_percentage` and `marketing_spend_usd` are not strongly correlated because a promotion does not necessarily include additional marketing spending, and higher marketing spending does not always require a larger discount. Elastic Net would become more useful if we later added correlated predictors. For example, if the model included both current marketing spend and a seven-day rolling average of marketing spend, Lasso might keep one and remove the other, while Elastic Net would be more likely to retain both with smaller, shared coefficients.
+
+## Exercise 4.3 — Polynomial Degree Selection
+
+> Compare cross-validated RMSE for degree 1 (linear), 2, and 3 on `discount_percentage` and `marketing_spend_usd`.
+
+```{r}
+#| label: ex4-3
+
+fit_poly_degree <- function(deg) {
+  if (deg == 1) {
+    rec <- sales_rec
+  } else {
+    rec <- recipe(sales_revenue_usd ~ ., data = sales_train) |>
+      step_impute_median(all_numeric_predictors()) |>
+      step_poly(discount_percentage, marketing_spend_usd, degree = deg) |>
+      step_normalize(all_numeric_predictors()) |>
+      step_dummy(all_nominal_predictors()) |>
+      step_zv(all_predictors())
+  }
+
+  wf <- workflow() |> add_recipe(rec) |> add_model(lasso_spec)
+
+  cv_result <- fit_resamples(
+    wf, resamples = sales_folds, metrics = metric_set(rmse)
+  ) |> collect_metrics()
+
+  tibble(degree = deg, cv_rmse = cv_result$mean, std_err = cv_result$std_err)
+}
+
+poly_degree_results <- map_dfr(1:3, fit_poly_degree)
+
+poly_degree_results |> gt() |> tab_header(title = "Polynomial Degree Comparison (10-fold CV RMSE)")
+```
+
+**1. Does degree 3 improve on degree 2?** The `cv_rmse` column above shows whether the added complexity improves performance. If RMSE continues to decrease from degree 1 to degree 2 and then degree 3, that would suggest meaningful curvature in the relationships between revenue, discount percentage, and marketing spend. If RMSE levels off or increases after degree 2, the relationships are likely quadratic at most, and the third-degree terms are adding complexity without meaningful predictive value.
+
+**2. Would degree 3 without regularization overfit more or less than degree 2?**
+
+```{r}
+#| label: ex4-3-overfit-check
+
+poly3_rec <- recipe(sales_revenue_usd ~ ., data = sales_train) |>
+  step_impute_median(all_numeric_predictors()) |>
+  step_poly(discount_percentage, marketing_spend_usd, degree = 3) |>
+  step_normalize(all_numeric_predictors()) |>
+  step_dummy(all_nominal_predictors()) |>
+  step_zv(all_predictors())
+
+poly3_unreg_spec <- linear_reg(penalty = 0.001, mixture = 0) |> set_engine("glmnet")
+
+poly3_unreg_fit <- fit(
+  workflow() |> add_recipe(poly3_rec) |> add_model(poly3_unreg_spec),
+  data = sales_train
+)
+
+poly3_train_rmse <- augment(poly3_unreg_fit, new_data = sales_train) |>
+  rmse(truth = sales_revenue_usd, estimate = .pred) |> pull(.estimate)
+poly3_test_rmse <- augment(poly3_unreg_fit, new_data = sales_test) |>
+  rmse(truth = sales_revenue_usd, estimate = .pred) |> pull(.estimate)
+
+tibble(
+  set = c("Train", "Test"),
+  rmse = c(poly3_train_rmse, poly3_test_rmse)
+) |> gt() |> tab_header(title = "Degree-3 Polynomial, Effectively Unregularized")
+```
+
+```{r}
+#| label: memory-cleanup-3
+#| include: false
+
+rm(poly3_rec, poly3_unreg_spec, poly3_unreg_fit)
+gc()
+```
+
+A noticeably higher test RMSE than training RMSE would indicate overfitting. With cubic terms for two continuous predictors and very little regularization, the degree 3 model has more flexibility to fit noise in the training data than the degree 2 model. Because of this, I would expect its train-test RMSE gap to be at least as large, and possibly larger, than the gap for degree 2.
+
+## Exercise 4.4 — Tuning Elastic Net
+
+> Tune both `penalty` and `mixture` for Elastic Net using a regular grid with 5 levels each. Compare to the tuned Lasso.
+
+```{r}
+#| label: ex4-4
+
+enet_tune_spec <- linear_reg(penalty = tune(), mixture = tune()) |>
+  set_engine("glmnet")
+
+enet_tune_wf <- workflow() |>
+  add_recipe(sales_rec) |>
+  add_model(enet_tune_spec)
+
+enet_grid <- grid_regular(
+  penalty(range = c(-4, 1)),
+  mixture(range = c(0, 1)),
+  levels = 5
+)
+
+set.seed(2025)
+enet_tune_results <- tune_grid(
+  enet_tune_wf,
+  resamples = sales_folds,
+  grid = enet_grid,
+  metrics = metric_set(rmse)
+)
+
+best_enet <- select_best(enet_tune_results, metric = "rmse")
+best_enet |> gt() |> tab_header(title = "Best Elastic Net (Tuned Penalty + Mixture)")
+
+final_enet_wf <- finalize_workflow(enet_tune_wf, best_enet)
+final_enet_fit <- fit(final_enet_wf, data = sales_train)
+
+final_enet_metrics <- augment(final_enet_fit, new_data = sales_test) |>
+  metric_set(rmse, rsq, mae)(truth = sales_revenue_usd, estimate = .pred)
+
+final_enet_metrics |> gt() |> tab_header(title = "Tuned Elastic Net \u2014 Test Set Metrics")
+```
+
+```{r}
+#| label: memory-cleanup-4
+#| include: false
+
+rm(enet_tune_wf, enet_tune_spec, enet_grid, enet_tune_results, final_enet_wf, final_enet_fit)
+gc()
+```
+**1. How many total model fits are required?** A 5 × 5 grid across `penalty` and `mixture` creates 25 hyperparameter combinations. Evaluating each combination with 10-fold cross-validation requires **250 total model fits**.
+
+**2. Is the best combination closer to Ridge or Lasso?** The `best_enet` table above shows the winning values for `penalty` and `mixture`. A `mixture` value close to 1 indicates that the tuning process preferred a Lasso-like model, while a value close to 0 indicates more Ridge-like behavior. A value near the middle suggests that a true combination of both penalties worked best for this dataset.
+
+**3. Is the additional tuning complexity worth it?** I compare `final_enet_metrics` for the tuned Elastic Net model with `final_metrics` for the tuned Lasso model in @sec-pipeline. If Elastic Net produces only a small RMSE improvement relative to the cross-validation standard errors shown in @sec-compare, the added tuning complexity is probably not worthwhile. In that case, tuned Lasso would be the more parsimonious and easier-to-explain choice for the group project.
+
+## Exercise 4.5 — Business Interpretation
+
+> Using the variable importance plot and coefficient table from the tuned Lasso, identify the three most important predictors and their direction, one predictor Lasso zeroed out that you expected to matter, and the single most actionable lever for a marketing manager.
+
+```{r}
+#| label: ex4-5
+
+tuned_coefs_nonzero <- final_lasso_fit |>
+  extract_fit_parsnip() |>
+  tidy() |>
+  filter(term != "(Intercept)", estimate != 0) |>
+  arrange(desc(abs(estimate)))
+
+tuned_coefs_zero <- final_lasso_fit |>
+  extract_fit_parsnip() |>
+  tidy() |>
+  filter(term != "(Intercept)", estimate == 0)
+
+top3 <- tuned_coefs_nonzero |> slice(1:3)
+
+top3 |> gt() |> tab_header(title = "Top 3 Predictors \u2014 Tuned Lasso")
+tuned_coefs_zero |> gt() |> tab_header(title = "Predictors Zeroed Out by the Tuned Lasso")
+```
+
+**1. Top three predictors and direction.** The table above lists the three largest nonzero coefficients from the tuned Lasso model. The sign of each coefficient shows whether the predictor is associated with higher or lower revenue relative to the reference level. If `discount_percentage` and `marketing_spend_usd` both appear in the top three with positive coefficients, that would directly support our group’s original research question: larger discounts and greater marketing spending are associated with higher revenue, holding the other predictors constant.
+
+**2. A predictor I expected to matter that was zeroed out.** The “Predictors Zeroed Out” table may include a day-of-week or month dummy that I expected to matter because of weekend traffic or holiday-season demand. Its removal could mean that it adds little predictive value once discount and marketing spend are included. It could also be sharing overlapping information with another retained predictor. For example, if holiday promotions tend to occur in certain months, `holiday_effect` and a `month` dummy may capture similar patterns, leading Lasso to keep one and remove the other.
+
+**3. The most actionable lever for a marketing manager.** Both `discount_percentage` and `marketing_spend_usd` are directly controlled by the business, unlike variables such as `day_of_the_week` or `month`. Whichever has the larger standardized coefficient in the top-three table would have the stronger association with revenue per standardized unit of change. However, a manager would also need to consider cost. Discounts reduce margin on every unit sold, while marketing spend is a separate expense that does not automatically increase with sales volume. The most useful lever therefore depends on whether the goal is maximizing revenue or protecting profitability.
+
+---
+
+# Summary
+
+::: {.callout-important title="Key takeaways"}
+* Reframing our group’s original discount-and-revenue question as **predicting `sales_revenue_usd`** turned it into a clear supervised regression problem.
+* Regularized regression methods, including Ridge, Lasso, and Elastic Net, were a logical starting point because the dataset includes both continuous predictors and dummy-coded categorical variables.
+* The **tuned Lasso** model, selected through 10-fold cross-validation rather than a manually chosen penalty, served as the main reference model for the variable-importance and business-interpretation sections.
+* `discount_percentage` and `marketing_spend_usd`, the two main levers in our group project, were evaluated alongside seasonal and product-category effects in the variable-importance chart (@sec-vip). This provides the clearest connection between the modeling results and our original project question.
+
+:::
+
+> As a blockquote to close: this reflection assignment turned out to be a useful sanity check on the group project itself — restating our AO in machine-learning terms forced a much more specific definition of "the effect of discounts on revenue" than our original proposal language did.
+
+---
+
+# Appendix {#sec-appendix .unnumbered}
+
+## Data Source
+
+- Kaggle dataset: [Retail Sales Data with Seasonal Trends and Marketing](https://www.kaggle.com/datasets/abdullah0a/retail-sales-data-with-seasonal-trends-and-marketing/versions/1)
+
+## Codebook Reference
+
+- Module 4 — Regression-Focused Methods: <https://jaejungca.github.io/regression-models/m04_regression_models.html>
+
+## Group Project Repository (Data Source)
+
+- Group repo: <https://github.com/mjshawell/IBM-6540-Group-Project>
+
+## This Assignment (Individual Repo)
+
+- GitHub repo: <https://github.com/jakevns/RStudio>
+- File path in repo: `M08/Evans,Jake-IBM6540-M08.qmd`
+- Rendered HTML (GitHub Pages): <https://jakevns.github.io/RStudio/M08/Evans%2CJake-IBM6540-M08.html>
