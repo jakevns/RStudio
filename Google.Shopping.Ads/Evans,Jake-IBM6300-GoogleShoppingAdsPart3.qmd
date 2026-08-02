@@ -48,5 +48,5 @@ On my resume or LinkedIn profile, I would describe the certification as: *“Goo
 
 ## Appendix
 
-- **GitHub Pages:** [https://jakevns.github.io/RStudio/CareerResearch/Evans%2CJake-IBM6300-GoogleShoppingAdsPart3.html](https://jakevns.github.io/RStudio/CareerResearch/Evans%2CJake-IBM6300-GoogleShoppingAdsPart3.html)
+- **GitHub Pages:** [https://jakevns.github.io/RStudio/Google.Shopping.Ads/Evans%2CJake-IBM6300-GoogleShoppingAdsPart3.html](https://jakevns.github.io/RStudio/Google.Shopping.Ads/Evans%2CJake-IBM6300-GoogleShoppingAdsPart3.html)
 - **GitHub Repository:** [https://github.com/jakevns/RStudio/tree/main/Google.Shopping.Ads](https://github.com/jakevns/RStudio/tree/main/Google.Shopping.Ads)
