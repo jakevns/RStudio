@@ -57,4 +57,4 @@ Applying this same GA4-to-Shopify setup to the CPP Farm Store project would give
 ## Appendix
 
 - **GitHub Repository:** [https://github.com/jakevns/RStudio](https://github.com/jakevns/RStudio)
-- **GitHub Pages (this report):** [https://jakevns.github.io/RStudio/assignments/A7/](https://jakevns.github.io/RStudio/assignments/A7/)
+- **GitHub Pages (this report):** [https://jakevns.github.io/RStudio/assignments/A7/Evans%2CJake-IBM6300-A7.html](https://jakevns.github.io/RStudio/assignments/A7/Evans%2CJake-IBM6300-A7.html)
