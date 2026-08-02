@@ -1,0 +1,52 @@
+---
+title: "Google Shopping Ads Certification — Part 3: Certification Exam"
+subtitle: "IBM 6300 — Retailing in the Digital Economy"
+author: "Jake Evans"
+date: today
+format:
+  html:
+    theme: cosmo
+    toc: true
+    code-fold: true
+    code-tools: true
+    number-sections: true
+    embed-resources: true
+editor: visual
+---
+
+## Purpose
+
+The final step in the individual professional certification series for IBM 6300 was completing the Google Shopping Ads Certification assessment through Google Skillshop. This report provides proof of completion and reflects on how the certification connects to the CPP Farm Store group project and supports my professional development.
+
+## Proof of Certification Completion
+
+The certification currently appears in Google Skillshop as the **AI-Powered Shopping Ads Certification**, the updated name for the Google Shopping Ads Certification. I completed the assessment with a score of 100%. The certification is renewable and remains valid through August 1, 2027.
+
+![Certification completion — AI-Powered Shopping Ads Certification, Final Score 100%](images/certification-proof.png)
+
+## Final Application Summary
+
+### Three most useful concepts learned
+
+Three concepts from the certification stood out as especially useful for my work this term. The first was the importance of the **product feed** in Google Merchant Center. Attributes such as GTIN, product category, availability, and price directly affect whether a product is eligible to appear, and strong feed quality can have a major impact on Shopping ad performance. The second was the growing use of **Performance Max campaigns**, which combine Shopping, Search, Display, and YouTube inventory within one automated campaign built around machine learning and asset groups. The third was the expanding role of **retail media** as its own discipline, including how retailers use their digital shelf space and first-party data to create advertising opportunities that both differ from and increasingly overlap with traditional Google Shopping campaigns.
+
+### Connecting the certification to CPP Farm Store's omnichannel opportunities
+
+CPP Farm Store sells fresh, campus-grown produce, and its biggest omnichannel opportunity is connecting the in-person shopping experience with a credible online storefront. The certification helped me understand that opportunity more clearly. Learning how product feeds work showed why our group’s Google Merchant Center feed—18 offers across 6 categories—needed complete, consistent, and accurate attributes. Missing or inconsistent product information could have made the listings ineligible to appear, regardless of how strong the campaign strategy was. The Performance Max material also showed how a small local retailer like CPP Farm Store could compete online without a large advertising budget by relying on automation and existing creative assets instead of building separate campaigns for every channel.
+
+### Personal application to the group project
+
+I applied this knowledge directly while building the GP3 Google Merchant Center feed for CPP Farm Store. I made sure all 18 product offers included complete and policy-compliant attributes so the listings would be eligible to appear, rather than simply existing in the feed. That same focus on feed quality carried into the GP4 campaign plan and GP5 creative brief. Our group’s *“Fresh This Week—Grown at Cal Poly Pomona”* concept depended on product images and descriptions that could work effectively in both paid Shopping listings and the organic online storefront.
+
+### Where I feel more confident professionally
+
+I now feel most confident discussing **product feed strategy and Performance Max campaign structure**, especially how the quality of upstream feed data affects downstream ad eligibility and performance. This is an area many advertisers may underestimate, but it is also the topic I can discuss most confidently in an interview because I applied it directly rather than only learning it in theory.
+
+### Resume / LinkedIn description
+
+On my resume or LinkedIn profile, I would describe the certification as: *“Google Shopping Ads (AI-Powered Shopping Ads) Certified through Google Skillshop; applied product feed management and Performance Max strategy to a live Google Merchant Center feed for a retail client project.”* This wording connects the credential to a concrete deliverable, making it more persuasive to a hiring manager than listing the certification alone.
+
+## Appendix
+
+- **GitHub Pages:** [https://jakevns.github.io/RStudio/CareerResearch/Evans%2CJake-IBM6300-GoogleShoppingAdsPart3.html](https://jakevns.github.io/RStudio/CareerResearch/Evans%2CJake-IBM6300-GoogleShoppingAdsPart3.html)
+- **GitHub Repository:** [https://github.com/jakevns/RStudio/tree/main/Google.Shopping.Ads](https://github.com/jakevns/RStudio/tree/main/Google.Shopping.Ads)
