@@ -1,0 +1,605 @@
+---
+title: "Reflection on Trees with Group Project Data"
+subtitle: "Analytics Objective: Predict spending of a customer at an e-commerce site"
+author: "Jake Evans"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 4
+    toc-expand: 1
+    toc-location: right-body
+    toc-title: "Contents"
+    number-sections: true
+    code-fold: show
+    code-tools: true
+    theme: cosmo
+    highlight-style: github
+    df-print: paged
+    embed-resources: true
+execute:
+  warning: false
+  message: false
+  freeze: true  # Turn back on after the notebook renders cleanly
+---
+
+# Overview {.unnumbered}
+
+> **Prompt:** *Reflect on what you learned in the Trees and Ensembles module. State your Analytics Objective, choose a decision tree method for your task, go through the full machine learning process on your group project data, try alternative methods, compare them, and interpret the results of a pruned tree.*
+
+This report applies the **decision tree methods** from Module 9, including Gini impurity and RSS-based splitting, cost-complexity pruning, and tree-based ensemble models, to our IBM 6540 group project dataset. Seis Leches (Group 1) has been using the Kaggle *Retail Sales Data with Seasonal Trends and Marketing* dataset[^1] for our project, *“Analyzing the Effect of Discounts on Retail Sales Volume and Revenue Using Seasonal Retail Data.”*
+
+[^1]: Abdullah0a. *Retail Sales Data with Seasonal Trends and Marketing* (version 1). Kaggle. <https://www.kaggle.com/datasets/abdullah0a/retail-sales-data-with-seasonal-trends-and-marketing/versions/1>
+
+> This report continues directly from my M08 reflection (`Evans,Jake-IBM6540-M08.qmd`), where I applied Lasso, Ridge, and Elastic Net regression to the same objective. That model is reused below as the linear baseline for comparing the tree-based methods.
+
+::: callout-note
+## Codebook references used in this report
+
+Classification Tree section: <https://jaejungca.github.io/trees-ensembles/m06_trees_ensembles.html#clasification-tree>
+
+Regression Tree section: <https://jaejungca.github.io/trees-ensembles/m06_trees_ensembles.html#regression-tree>
+:::
+
+# Setup
+
+```{r}
+#| label: setup
+
+library(tidymodels)
+library(tidyverse)
+library(rpart.plot)  # visualize decision trees
+library(vip)          # variable importance plots
+library(gt)
+
+tidymodels_prefer()
+set.seed(6540)
+```
+
+::: {.callout-tip collapse="true"}
+## Package installation
+
+If any of these are not yet installed, run once (then comment out):
+
+```{r}
+#| eval: false
+install.packages("rpart.plot")
+install.packages("vip")
+install.packages("gt")
+install.packages("ranger")   # engine for rand_forest()
+install.packages("xgboost")  # engine for boost_tree()
+install.packages("glmnet")   # engine for the Lasso baseline (linear_reg)
+```
+
+The `rpart` engine (used for decision trees) ships with base R. `ranger`, `xgboost`, and `glmnet` do not come bundled with `tidymodels` and must be installed separately the first time you use them on a given Posit Cloud instance.
+:::
+
+# Analytics Objective (AO) {#sec-ao}
+
+> **Prompt:** *State your AO for your project. If your AO didn't involve machine learning, revise it so the objective is appropriately stated for a machine learning task. Describe: (1) supervised vs. unsupervised learning, (2) the variables to be included and their roles, and (3) the broader category of machine learning method (regression vs. classification).*
+
+## Revised Analytics Objective
+
+Our group’s original framing—*“analyzing the effect of discounts on retail sales volume and revenue”*—is more focused on hypothesis testing than prediction. As in my M08 reflection, I reframed it as a supervised machine learning objective:
+
+> **Analytics Objective:** Predict a store-product transaction’s `Sales Revenue (USD)` using discounting, marketing investment, store and product context, and calendar and seasonal factors. This would help the retailer identify which individual levers, and which combinations of levers, have the strongest relationship with revenue.
+
+**1. Supervised vs. unsupervised:** This is **supervised learning** — every row has an observed, continuous `Sales Revenue (USD)` value that the model is trained to predict.
+
+**2. Variables and roles:**
+
+| Role | Variable(s) |
+|------------------------------------|------------------------------------|
+| Outcome (label) | `Sales Revenue (USD)` (log-transformed to `log_sales_revenue` for the tree recipe) |
+| ID (not used for prediction) | `Store ID`, `Product ID` |
+| Predictors | `Discount Percentage`, `Marketing Spend (USD)`, `Product Category`, `Day of the Week`, `Holiday Effect`, `month` (derived from `Date`) |
+| Excluded (leakage risk) | `Units Sold` — this is definitionally almost the same signal as revenue (`revenue ≈ units × price`), so including it would let the model "cheat" rather than learn the marketing-driven relationship |
+| Excluded (data quality) | `Store Location` — checking the raw data shows a single `Store ID` (e.g. "Spearsland") appearing with **243 different countries** across its transactions. This field does not actually describe a fixed store attribute in this dataset; it behaves like noise rather than a genuine geographic signal, and one-hot encoding its 190+ levels would add hundreds of near-useless dummy columns |
+| Excluded (data cleaning) | 237 rows with `Sales Revenue (USD) == 0` (voided or anomalous transactions — see the data cleaning note below) |
+| Sample used | A random 35% subsample of the cleaned data (\~10,400 of \~29,700 rows) is used for modeling, due to a Posit Cloud session RAM limit — see the memory-constraint note below |
+
+**3. Broader ML category:** Because the outcome is **continuous** (a dollar amount), this is a **regression** task, not classification.
+
+# Method Selection: Regression Tree {#sec-method}
+
+> **Prompt:** *Choose either of the two decision tree methods for your chosen machine learning task (regression vs. classification).*
+
+Since the AO is a regression task, I use a **Regression Tree**, which makes its splits using **Residual Sum of Squares (RSS)** instead of Gini impurity.
+
+**Why a regression tree makes sense here:**
+
+* My M08 Lasso model found an important **interaction between discount rate and product category**, meaning some categories respond much more strongly to discounts than others. A linear model needs that interaction added manually, while a tree can find it on its own by splitting on the variables that reduce RSS the most.
+
+* Trees also work well with mixed data types. In this dataset, `Product Category` and `Day of the Week` are categorical, while `Discount Percentage` and `Marketing Spend` are numeric. A decision tree can handle all of them without needing the same scaling or transformations used for Lasso.
+
+* The results can be explained as a short set of `IF/THEN` rules, which is much easier to present to a marketing manager than a long table of coefficients and dummy variables.
+
+* The main downside is that a deep tree can overfit, which is why Section 6 focuses on cost-complexity pruning.
+
+
+# Data Setup
+
+```{r}
+#| label: load-data
+
+sales_raw <- read_csv("data/Retail_sales.csv", show_col_types = FALSE)
+
+sales_raw <- sales_raw |>
+  mutate(
+    Date = ymd(Date),
+    month = factor(month(Date, label = TRUE), ordered = TRUE),
+    # readr parses the "True"/"False" strings in the CSV as an actual R
+    # logical column (TRUE/FALSE), not the character strings "True"/"False" --
+    # so the factor levels must be logical values, not strings.
+    `Holiday Effect` = factor(`Holiday Effect`, levels = c(FALSE, TRUE),
+                              labels = c("No", "Yes")),
+    `Product Category` = factor(`Product Category`),
+    `Day of the Week`  = factor(`Day of the Week`,
+                                 levels = c("Monday", "Tuesday", "Wednesday",
+                                            "Thursday", "Friday", "Saturday", "Sunday"),
+                                 ordered = TRUE)
+    # Store Location is NOT converted to a predictor factor here -- see the
+    # data-quality note above; it is left as-is and simply excluded from
+    # the model formula below.
+  )
+
+glimpse(sales_raw)
+```
+
+::: callout-warning
+## Data cleaning: zero-revenue transactions
+
+A small number of rows had `Sales Revenue (USD) == 0`. Since the outcome is log-transformed, those rows would create `log(0) = -Inf`, which causes problems for the models, RMSE calculations, and especially XGBoost. These $0 rows most likely represent voided transactions, stockouts, or placeholder values rather than actual sales, so I removed them before applying the log transformation. They also do not really fit the discount and marketing effectiveness question this analysis is focused on.
+
+
+:::
+
+```{r}
+#| label: clean-zero-revenue
+
+n_before <- nrow(sales_raw)
+
+sales_raw <- sales_raw |> filter(`Sales Revenue (USD)` > 0)
+
+cat("Rows removed (Sales Revenue == 0):", n_before - nrow(sales_raw), "\n")
+cat("Rows remaining:", nrow(sales_raw), "\n")
+```
+
+::: callout-warning
+## Data reduction: Posit Cloud memory constraint
+
+The full modeling process kept crashing Posit Cloud because the free version only gives me 1 GB of memory. Running the Regression Tree, Random Forest, XGBoost, 10-fold cross-validation, and the Lasso baseline on all 29,700 cleaned rows was too much for the platform. Instead of removing one of the required models or using fewer folds, I took a random 35% sample before splitting the data into training and test sets. This let me run the full analysis while still keeping the main discount, marketing, category, and seasonal patterns from the original dataset.
+
+
+:::
+
+```{r}
+#| label: downsample-for-memory
+
+set.seed(6540)
+sales_raw <- sales_raw |> slice_sample(prop = 0.35)
+cat("Rows after downsampling for memory-constrained rendering:", nrow(sales_raw), "\n")
+
+gc()
+```
+
+```{r}
+#| label: tbl-revenue-summary
+#| tbl-cap: "Distribution of Sales Revenue (USD)"
+
+sales_raw |>
+  summarise(
+    n = n(),
+    mean_rev = mean(`Sales Revenue (USD)`, na.rm = TRUE),
+    median_rev = median(`Sales Revenue (USD)`, na.rm = TRUE),
+    sd_rev = sd(`Sales Revenue (USD)`, na.rm = TRUE),
+    max_rev = max(`Sales Revenue (USD)`, na.rm = TRUE)
+  ) |>
+  gt() |>
+  fmt_number(columns = -n, decimals = 2) |>
+  tab_header(title = "Sales Revenue (USD) — Summary Statistics")
+```
+
+```{r}
+#| label: fig-revenue-hist
+#| fig-cap: "Sales Revenue is right-skewed, which motivates a log-transformed outcome for the tree recipe (@sec-recipe)."
+
+ggplot(sales_raw, aes(x = `Sales Revenue (USD)`)) +
+  geom_histogram(bins = 40, fill = "#154734", color = "white", alpha = 0.85) +
+  labs(title = "Distribution of Sales Revenue (USD)", x = "Sales Revenue ($)", y = "Count") +
+  theme_minimal(base_size = 11)
+```
+
+As @fig-revenue-hist shows, revenue is right-skewed, with a small number of large transactions extending the upper tail. This is exactly the type of distribution the codebook identifies as a reason to log-transform the *outcome*, rather than the predictors, before fitting a regression tree.
+
+# Train/Test Split, Recipe, CV Folds
+
+## Splits
+
+```{r}
+#| label: split
+
+set.seed(617)
+
+sales_split <- initial_split(sales_raw, prop = 0.80, strata = `Sales Revenue (USD)`)
+sales_train <- training(sales_split)
+sales_test  <- testing(sales_split)
+
+# log-transform the OUTCOME (not predictors) to handle right skew
+sales_train <- sales_train |> mutate(log_sales_revenue = log(`Sales Revenue (USD)`))
+sales_test  <- sales_test  |> mutate(log_sales_revenue = log(`Sales Revenue (USD)`))
+
+cat("Training rows:", nrow(sales_train), "\n")
+cat("Test rows    :", nrow(sales_test), "\n")
+
+gc()
+```
+
+## Why Trees Need a Different Recipe {#sec-recipe}
+
+Unlike the Lasso model in M08, decision trees only care about the **order of the values**, not the scale they are measured on. Because of that, `step_normalize()` and predictor-level `step_log()` would not change where the tree makes its splits. `Marketing Spend (USD)` would be split at the same point whether it stays in dollars or is converted to a z-score. This lets me use a much simpler recipe than the one I needed for Lasso in M08.
+
+
+```{r}
+#| label: reg-recipe
+
+reg_rec <- recipe(
+  log_sales_revenue ~ `Discount Percentage` + `Marketing Spend (USD)` +
+    `Product Category` + `Day of the Week` +
+    `Holiday Effect` + month,
+  data = sales_train
+) |>
+  step_impute_median(all_numeric_predictors()) |>
+  step_novel(all_nominal_predictors()) |>          # unseen factor levels at deploy time
+  step_unknown(all_nominal_predictors()) |>         # missing categorical values
+  step_dummy(all_nominal_predictors(), one_hot = TRUE) |>
+  step_zv(all_predictors())
+
+reg_rec
+```
+
+::: callout-note
+## Two recipe steps specific to decision trees
+
+* **`step_unknown()`** helps prevent errors if the model sees a new `Product Category` or `Day of the Week` value after deployment that was not included in the training data.
+
+* **`one_hot = TRUE` in `step_dummy()`** creates a separate dummy variable for every category instead of leaving one out as the reference group. Since decision trees do not have the same multicollinearity concerns as linear models, the tree can split directly on something like `Product_Category_Electronics == 1`.
+
+:::
+
+## Cross-Validation Folds
+
+```{r}
+#| label: folds
+
+set.seed(2025)
+sales_folds <- vfold_cv(sales_train, v = 10, strata = log_sales_revenue)
+sales_folds
+```
+
+# Regression Tree {#sec-regtree}
+
+## Baseline Manual Tree
+
+```{r}
+#| label: tree-spec
+
+tree_spec <- decision_tree(
+  cost_complexity = 0.001,
+  tree_depth = 10,
+  min_n = 20
+) |>
+  set_engine("rpart") |>
+  set_mode("regression")
+
+tree_wf <- workflow() |>
+  add_recipe(reg_rec) |>
+  add_model(tree_spec)
+
+tree_fit <- tree_wf |> fit(data = sales_train)
+tree_fit
+```
+
+## Visualizing the Tree
+
+```{r}
+#| label: fig-tree-baseline
+#| fig-cap: "Baseline regression tree (cost_complexity = 0.001) — unpruned and hard to read, motivating the pruning work in @sec-pruning."
+#| fig-width: 10
+#| fig-height: 7
+
+tree_fit |>
+  extract_fit_engine() |>
+  rpart.plot(roundint = FALSE, main = "Baseline Regression Tree (log Sales Revenue)")
+```
+
+## Baseline Performance
+
+```{r}
+#| label: tbl-tree-baseline-perf
+#| tbl-cap: "Baseline regression tree performance on train vs. test"
+
+tree_train_pred <- augment(tree_fit, new_data = sales_train)
+tree_test_pred  <- augment(tree_fit, new_data = sales_test)
+
+bind_rows(
+  tree_train_pred |> metrics(truth = log_sales_revenue, estimate = .pred) |> mutate(data = "train"),
+  tree_test_pred  |> metrics(truth = log_sales_revenue, estimate = .pred) |> mutate(data = "test")
+) |>
+  select(data, .metric, .estimate) |>
+  pivot_wider(names_from = .metric, values_from = .estimate) |>
+  gt() |>
+  fmt_number(columns = -data, decimals = 4) |>
+  tab_header(title = "Baseline Regression Tree — Train vs. Test")
+```
+
+**Interpretation:** The baseline tree, grown with a small `cost_complexity` penalty, already shows the classic signs of overfitting: it achieves a lower RMSE and higher R² on the training data than on the test data. This performance gap motivates the pruning analysis in @sec-pruning.
+
+# Alternative Methods {#sec-alt-methods}
+
+> **Prompt:** *What alternative methods can you try to improve the metrics produced above? Try them.*
+
+I compare the regression tree with three alternative models: **Random Forest**, **Boosted Tree (XGBoost)**, and the **Lasso baseline** carried over from my M08 reflection.
+
+```{r}
+#| label: alt-specs
+
+rf_spec <- rand_forest(mtry = 3, trees = 200, min_n = 10) |>
+  set_engine("ranger", importance = "impurity") |>
+  set_mode("regression")
+
+xgb_spec <- boost_tree(
+  trees = 200, tree_depth = 6, learn_rate = 0.05, min_n = 10
+) |>
+  set_engine("xgboost") |>
+  set_mode("regression")
+
+lasso_spec <- linear_reg(penalty = 0.01, mixture = 1) |>
+  set_engine("glmnet")
+
+rf_wf    <- workflow() |> add_recipe(reg_rec) |> add_model(rf_spec)
+xgb_wf   <- workflow() |> add_recipe(reg_rec) |> add_model(xgb_spec)
+lasso_wf <- workflow() |> add_recipe(reg_rec) |> add_model(lasso_spec)
+```
+
+## 10-Fold Cross-Validated Comparison
+
+```{r}
+#| label: cv-compare
+
+set.seed(6540)
+
+tree_res  <- fit_resamples(tree_wf,  resamples = sales_folds,
+                            metrics = metric_set(rmse, rsq, mae))
+rf_res    <- fit_resamples(rf_wf,    resamples = sales_folds,
+                            metrics = metric_set(rmse, rsq, mae))
+xgb_res   <- fit_resamples(xgb_wf,   resamples = sales_folds,
+                            metrics = metric_set(rmse, rsq, mae))
+lasso_res <- fit_resamples(lasso_wf, resamples = sales_folds,
+                            metrics = metric_set(rmse, rsq, mae))
+
+model_comparison <- bind_rows(
+  collect_metrics(tree_res)  |> mutate(model = "Regression Tree"),
+  collect_metrics(rf_res)    |> mutate(model = "Random Forest"),
+  collect_metrics(xgb_res)   |> mutate(model = "Boosted Tree (XGBoost)"),
+  collect_metrics(lasso_res) |> mutate(model = "Lasso (M08 baseline)")
+) |>
+  select(model, .metric, mean, std_err) |>
+  arrange(.metric, mean)
+
+model_comparison
+```
+
+```{r}
+#| label: cleanup-cv
+#| include: false
+
+# Posit Cloud's free tier caps RAM around 1GB; fit_resamples() across four
+# models x 10 folds is memory-heavy. Clear intermediate CV objects now that
+# only model_comparison (the summary) is needed downstream.
+rm(tree_res, rf_res, xgb_res, lasso_res)
+gc()
+```
+
+```{r}
+#| label: tbl-model-comparison
+#| tbl-cap: "10-fold cross-validated model comparison"
+
+model_comparison |>
+  pivot_wider(names_from = .metric, values_from = c(mean, std_err)) |>
+  gt() |>
+  fmt_number(columns = -model, decimals = 4) |>
+  tab_header(title = "Model Comparison — 10-Fold CV (log Sales Revenue)")
+```
+
+::: panel-tabset
+## Random Forest importance
+
+```{r}
+#| label: fig-vip-rf
+#| fig-cap: "Random forest variable importance (impurity-based)"
+
+rf_fit <- rf_wf |> fit(data = sales_train)
+rf_fit |> extract_fit_parsnip() |> vip(num_features = 12) +
+  labs(title = "Random Forest — Variable Importance")
+```
+
+## Boosted Tree importance
+
+```{r}
+#| label: fig-vip-xgb
+#| fig-cap: "Boosted tree (XGBoost) variable importance"
+
+xgb_fit <- xgb_wf |> fit(data = sales_train)
+xgb_fit |> extract_fit_parsnip() |> vip(num_features = 12) +
+  labs(title = "Boosted Tree — Variable Importance")
+```
+
+## Single Tree importance
+
+```{r}
+#| label: fig-vip-tree
+#| fig-cap: "Single regression tree variable importance"
+
+tree_fit |> extract_fit_parsnip() |> vip(num_features = 12) +
+  labs(title = "Regression Tree — Variable Importance")
+```
+:::
+
+**Does the ranking make sense?** Yes. `Discount Percentage` and `Marketing Spend (USD)` are the strongest variables across all three importance plots, which makes sense because those are the two main factors our group has focused on throughout the project. `Product Category` and `month` also matter, but more as background factors that can change how well a discount or marketing decision works.
+
+**Which model performs best, and does that make sense?** Random Forest and XGBoost perform better than the single Regression Tree on cross-validated RMSE and R². That is not surprising because ensemble models combine many trees, which usually makes their predictions more stable. If either one also beats the Lasso model, it would suggest there are real nonlinear patterns or interactions in the data that the linear model cannot capture as well.
+
+
+# Decision Tree Pruning {#sec-pruning}
+
+> **Prompt:** *Using the `fit_tree_cp()` function from Section 4.5 (or write your own), fit decision trees across `cost_complexity` values of `c(0.0001, 0.001, 0.005, 0.01, 0.05, 0.10)`. Plot train vs. test performance across all `cp` values. At what `cp` value does test performance peak? What happens to train performance at that same value? At the optimal `cp`, how many leaf nodes does the tree have?*
+
+The codebook’s `fit_tree_cp()` function was designed for a **classification** tree and compares training and test performance using **ROC AUC**. Since my analytics objective is a **regression** task, I adapt the same approach to track training and test **RMSE** instead.
+
+```{r}
+#| label: fit-tree-cp-function
+
+fit_tree_cp <- function(cp, recipe, train_data, test_data) {
+  spec <- decision_tree(
+    cost_complexity = cp,
+    tree_depth = 10,
+    min_n = 5
+  ) |>
+    set_engine("rpart") |>
+    set_mode("regression")
+
+  wf <- workflow() |> add_recipe(recipe) |> add_model(spec)
+  fit <- wf |> fit(data = train_data)
+
+  train_rmse <- augment(fit, new_data = train_data) |>
+    rmse(truth = log_sales_revenue, estimate = .pred) |>
+    pull(.estimate)
+
+  test_rmse <- augment(fit, new_data = test_data) |>
+    rmse(truth = log_sales_revenue, estimate = .pred) |>
+    pull(.estimate)
+
+  tibble(cp = cp, train_rmse = train_rmse, test_rmse = test_rmse)
+}
+```
+
+```{r}
+#| label: run-tree-cp
+
+cp_values <- c(0.0001, 0.001, 0.005, 0.01, 0.05, 0.10)
+
+cp_results <- map(cp_values, ~fit_tree_cp(.x, reg_rec, sales_train, sales_test)) |>
+  bind_rows() |>
+  mutate(gap = train_rmse - test_rmse) |>
+  arrange(cp)
+
+cp_results |>
+  gt() |>
+  fmt_number(columns = -cp, decimals = 4) |>
+  tab_header(title = "Train vs. Test RMSE Across cost_complexity Values")
+```
+
+```{r}
+#| label: fig-cp-tradeoff
+#| fig-cap: "Train vs. test RMSE across cost_complexity (cp) values. Lower RMSE is better."
+
+cp_results |>
+  pivot_longer(cols = c(train_rmse, test_rmse), names_to = "data", values_to = "rmse_val") |>
+  mutate(data = if_else(data == "train_rmse", "Train", "Test")) |>
+  ggplot(aes(x = cp, y = rmse_val, color = data)) +
+  geom_line(linewidth = 1) +
+  geom_point(size = 2) +
+  scale_x_log10() +
+  scale_color_manual(values = c("Train" = "#4A90D9", "Test" = "#154734")) +
+  labs(
+    title = "Regression Tree: Train vs. Test RMSE by cost_complexity",
+    x = "cost_complexity (log scale)", y = "RMSE (log Sales Revenue)", color = NULL
+  ) +
+  theme_minimal(base_size = 11)
+```
+
+```{r}
+#| label: best-cp
+
+best_cp <- cp_results |> slice_min(test_rmse, n = 1) |> pull(cp)
+cat("cost_complexity with lowest TEST RMSE:", best_cp, "\n")
+```
+
+**At what `cp` does test performance peak, and what happens to training performance at that value?** As `cost_complexity` gets smaller, the tree becomes more complex and training RMSE keeps dropping because it fits the training data more closely. Test RMSE improves at first, but eventually levels off or gets worse once the tree starts fitting noise. The best value is `r best_cp`, where test RMSE is lowest. Training RMSE is still lower at that point, so there is still a gap, but this setting gives the best balance between fitting the training data and performing well on new data.
+
+## Leaf Nodes at the Optimal `cp`
+
+```{r}
+#| label: leaf-count
+
+final_tree_spec <- decision_tree(
+  cost_complexity = best_cp,
+  tree_depth = 10,
+  min_n = 5
+) |>
+  set_engine("rpart") |>
+  set_mode("regression")
+
+final_tree_wf <- workflow() |> add_recipe(reg_rec) |> add_model(final_tree_spec)
+final_tree_fit <- final_tree_wf |> fit(data = sales_train)
+
+n_leaves <- final_tree_fit |>
+  extract_fit_engine() |>
+  pluck("frame") |>
+  filter(var == "<leaf>") |>
+  nrow()
+
+cat("Number of leaf nodes at optimal cp:", n_leaves, "\n")
+```
+
+```{r}
+#| label: fig-final-tree
+#| fig-cap: "Final pruned regression tree at the cost_complexity value with lowest test RMSE"
+#| fig-width: 10
+#| fig-height: 7
+
+final_tree_fit |>
+  extract_fit_engine() |>
+  rpart.plot(roundint = FALSE, main = paste0("Pruned Regression Tree (cp = ", best_cp, ")"))
+```
+
+## Explaining Overfitting to a Marketing Manager
+
+> **Prompt:** *In plain English, explain to a marketing manager why a tree with 200 leaf nodes might perform worse on new customers than a tree with 15 leaf nodes, even though it was more accurate on the training data.*
+
+::: callout-important
+## Plain-English explanation
+
+Think of the 200-leaf tree as a manager who memorized the training data instead of actually learning the main patterns. It looks extremely accurate because it creates very specific rules for combinations it has already seen, like Furniture with a 15% discount on a Tuesday in March with exactly $62 in marketing spend.
+
+The problem is that new transactions will not match those exact combinations. With that many leaves, the tree starts fitting random details and noise, so its predictions become less reliable when it sees new data.
+
+The 15-leaf tree is simpler and focuses on the splits that matter most, such as discount, marketing spend, category, and season. It may not fit the training data as perfectly, but the patterns it finds are much more likely to hold up in the future.
+
+Basically, the 200-leaf tree is memorizing the data, while the 15-leaf tree is learning patterns the business can actually use.
+:::
+
+# Summary
+
+```{r}
+#| label: tbl-final-summary
+#| tbl-cap: "Final model comparison summary"
+
+model_comparison |>
+  filter(.metric == "rmse") |>
+  arrange(mean) |>
+  select(model, mean_rmse = mean, std_err) |>
+  gt() |>
+  fmt_number(columns = -model, decimals = 4) |>
+  tab_header(title = "Final Ranking by 10-Fold CV RMSE (lower is better)")
+```
+
+When I compared the four models in @sec-alt-methods, Random Forest and XGBoost generally had lower cross-validated RMSE than the pruned Regression Tree and the M08 Lasso model. Even so, the pruned tree in @sec-pruning is still the easiest to explain to store managers because it turns the results into clear discount and marketing rules. This supports the main lesson from the module: **a single tree is easier to understand but more likely to vary, while ensemble models are usually more accurate and stable but harder to interpret.**
+
+
+# Appendix {#sec-appendix}
+
+- Rendered HTML report: <https://jakevns.github.io/RStudio/M09/Evans%2CJake-IBM6540-M09.html>
+- Source repository: <https://github.com/jakevns/RStudio/tree/main/M09>
+- Prior related work (M08 Lasso baseline): <https://jakevns.github.io/RStudio/M08/Evans%2CJake-IBM6540-M08.html>
