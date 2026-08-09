@@ -83,6 +83,6 @@ Before the final submission, I want to clean up how the store is organized by sp
 
 ## Appendix
 
-- **GitHub Pages:** [jakevns.github.io/RStudio/](https://jakevns.github.io/RStudio/)
+- **GitHub Pages:** [jakevns.github.io/RStudio/Assignment 8](https://jakevns.github.io/RStudio/W10/Evans%2CJake-IBM6300-Assignment8.html)
 - **GitHub Repository:** [github.com/jakevns/RStudio/tree/main/M10](https://github.com/jakevns/RStudio/tree/main/M10)
 - **Shopify Store (test):** [jake-bailey-artist.myshopify.com](https://jake-bailey-artist.myshopify.com)
