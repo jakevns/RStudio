@@ -1,6 +1,6 @@
 ---
 title: "Reflection on Trees with Group Project Data"
-subtitle: "Analytics Objective: Predict Retail Sales Revenue from Discounting, Marketing, and Seasonal Factors"
+subtitle: "Analytics Objective: Predict spending of a customer at an e-commerce site"
 author: "Jake Evans"
 date: today
 format:
@@ -13,10 +13,9 @@ format:
     number-sections: true
     code-fold: show
     code-tools: true
-    code-overflow: wrap
     theme: cosmo
     highlight-style: github
-    df-print: kable
+    df-print: paged
     embed-resources: true
 execute:
   warning: false
@@ -28,7 +27,7 @@ execute:
 
 > **Prompt:** *Reflect on what you learned in the Trees and Ensembles module. State your Analytics Objective, choose a decision tree method for your task, go through the full machine learning process on your group project data, try alternative methods, compare them, and interpret the results of a pruned tree.*
 
-This report applies the **decision tree methods** from Module 9—including Gini impurity and RSS-based splitting, cost-complexity pruning, and tree-based ensemble models—to our IBM 6540 group project dataset. Seis Leches (Group 1) has been using the Kaggle *Retail Sales Data with Seasonal Trends and Marketing* dataset[^1] for our project, *“Analyzing the Effect of Discounts on Retail Sales Volume and Revenue Using Seasonal Retail Data.”*
+This report applies the **decision tree methods** from Module 9, including Gini impurity and RSS-based splitting, cost-complexity pruning, and tree-based ensemble models, to our IBM 6540 group project dataset. Seis Leches (Group 1) has been using the Kaggle *Retail Sales Data with Seasonal Trends and Marketing* dataset[^1] for our project, *“Analyzing the Effect of Discounts on Retail Sales Volume and Revenue Using Seasonal Retail Data.”*
 
 [^1]: Abdullah0a. *Retail Sales Data with Seasonal Trends and Marketing* (version 1). Kaggle. <https://www.kaggle.com/datasets/abdullah0a/retail-sales-data-with-seasonal-trends-and-marketing/versions/1>
 
@@ -97,7 +96,7 @@ Our group’s original framing—*“analyzing the effect of discounts on retail
 | Excluded (leakage risk) | `Units Sold` — this is definitionally almost the same signal as revenue (`revenue ≈ units × price`), so including it would let the model "cheat" rather than learn the marketing-driven relationship |
 | Excluded (data quality) | `Store Location` — checking the raw data shows a single `Store ID` (e.g. "Spearsland") appearing with **243 different countries** across its transactions. This field does not actually describe a fixed store attribute in this dataset; it behaves like noise rather than a genuine geographic signal, and one-hot encoding its 190+ levels would add hundreds of near-useless dummy columns |
 | Excluded (data cleaning) | 237 rows with `Sales Revenue (USD) == 0` (voided or anomalous transactions — see the data cleaning note below) |
-| Sample used | A random 35% subsample of the cleaned data (~10,400 of ~29,700 rows) is used for modeling, due to a Posit Cloud session RAM limit — see the memory-constraint note below |
+| Sample used | A random 35% subsample of the cleaned data (\~10,400 of \~29,700 rows) is used for modeling, due to a Posit Cloud session RAM limit — see the memory-constraint note below |
 
 **3. Broader ML category:** Because the outcome is **continuous** (a dollar amount), this is a **regression** task, not classification.
 
@@ -105,17 +104,18 @@ Our group’s original framing—*“analyzing the effect of discounts on retail
 
 > **Prompt:** *Choose either of the two decision tree methods for your chosen machine learning task (regression vs. classification).*
 
-Since the AO is a regression task, I use the **Regression Tree**, which splits on **Residual Sum of Squares (RSS)** rather than Gini impurity.
+Since the AO is a regression task, I use a **Regression Tree**, which makes its splits using **Residual Sum of Squares (RSS)** instead of Gini impurity.
 
-**Why a regression tree is a strong fit here:**
+**Why a regression tree makes sense here:**
 
-- My M08 Lasso model identified a meaningful **interaction between discount rate and product category**, suggesting that some categories respond much more strongly to discounts than others. A linear model requires that interaction to be specified manually, while a decision tree can discover it automatically by splitting on the variable that produces the largest reduction in RSS and then splitting again within each branch.
+* My M08 Lasso model found an important **interaction between discount rate and product category**, meaning some categories respond much more strongly to discounts than others. A linear model needs that interaction added manually, while a tree can find it on its own by splitting on the variables that reduce RSS the most.
 
-- Decision trees do not require scaling and are unaffected by monotonic transformations, which makes them well suited for messy, mixed-type retail data. In this dataset, `Product Category` and `Day of the Week` are categorical while `Discount Percentage` and `Marketing Spend` are numeric — trees handle both without any transformation.
+* Trees also work well with mixed data types. In this dataset, `Product Category` and `Day of the Week` are categorical, while `Discount Percentage` and `Marketing Spend` are numeric. A decision tree can handle all of them without needing the same scaling or transformations used for Lasso.
 
-- The output can be expressed as a small set of `IF/THEN` business rules, which is much easier to present to a marketing manager than a long coefficient table filled with dummy variables.
+* The results can be explained as a short set of `IF/THEN` rules, which is much easier to present to a marketing manager than a long table of coefficients and dummy variables.
 
-- The main weakness of a single deep tree is its tendency to overfit, which Section 6 examines through cost-complexity pruning.
+* The main downside is that a deep tree can overfit, which is why Section 6 focuses on cost-complexity pruning.
+
 
 # Data Setup
 
@@ -146,10 +146,12 @@ sales_raw <- sales_raw |>
 glimpse(sales_raw)
 ```
 
-::: {.callout-warning}
+::: callout-warning
 ## Data cleaning: zero-revenue transactions
 
-A small number of rows have `Sales Revenue (USD) == 0`. Since the regression outcome is `log(Sales Revenue)`, a value of exactly 0 produces `log(0) = -Inf`, which breaks every downstream model (tree splits, RMSE, and especially XGBoost, which errors out on infinite labels). These $0 rows most likely represent voided transactions, stockouts, or data-entry placeholders rather than genuine sales, so they are excluded before the outcome is log-transformed — they are not part of the discount/marketing-effectiveness question this AO is asking.
+A small number of rows had `Sales Revenue (USD) == 0`. Since the outcome is log-transformed, those rows would create `log(0) = -Inf`, which causes problems for the models, RMSE calculations, and especially XGBoost. These $0 rows most likely represent voided transactions, stockouts, or placeholder values rather than actual sales, so I removed them before applying the log transformation. They also do not really fit the discount and marketing effectiveness question this analysis is focused on.
+
+
 :::
 
 ```{r}
@@ -163,10 +165,12 @@ cat("Rows removed (Sales Revenue == 0):", n_before - nrow(sales_raw), "\n")
 cat("Rows remaining:", nrow(sales_raw), "\n")
 ```
 
-::: {.callout-warning}
+::: callout-warning
 ## Data reduction: Posit Cloud memory constraint
 
-The full modeling pipeline in this report — a Regression Tree, Random Forest, and Boosted Tree, each evaluated with 10-fold cross-validation, plus the Lasso baseline — repeatedly exceeded Posit Cloud's free-tier 1GB session RAM limit when run against the full ~29,700-row cleaned dataset. Rather than drop a required model or skip the required 10-fold comparison, I take a random 35% subsample (stratified would change the sampling frame relative to the rest of the report, so a simple random sample is used here) before splitting into train/test. This keeps every discount, marketing, category, and seasonal relationship in the data intact at roughly the same proportions, while keeping the full pipeline inside the platform's memory limit.
+The full modeling process kept crashing Posit Cloud because the free version only gives me 1 GB of memory. Running the Regression Tree, Random Forest, XGBoost, 10-fold cross-validation, and the Lasso baseline on all 29,700 cleaned rows was too much for the platform. Instead of removing one of the required models or using fewer folds, I took a random 35% sample before splitting the data into training and test sets. This let me run the full analysis while still keeping the main discount, marketing, category, and seasonal patterns from the original dataset.
+
+
 :::
 
 ```{r}
@@ -233,7 +237,8 @@ gc()
 
 ## Why Trees Need a Different Recipe {#sec-recipe}
 
-Unlike Lasso in M08, decision trees split predictors based on **rank order rather than magnitude**. Because of this, steps such as `step_normalize()` and predictor-level `step_log()` provide little benefit—the same split point exists whether `Marketing Spend (USD)` is measured in dollars or converted to a z-score. For that reason, the recipe below is intentionally simpler than the Lasso recipe used in M08.
+Unlike the Lasso model in M08, decision trees only care about the **order of the values**, not the scale they are measured on. Because of that, `step_normalize()` and predictor-level `step_log()` would not change where the tree makes its splits. `Marketing Spend (USD)` would be split at the same point whether it stays in dollars or is converted to a z-score. This lets me use a much simpler recipe than the one I needed for Lasso in M08.
+
 
 ```{r}
 #| label: reg-recipe
@@ -256,9 +261,10 @@ reg_rec
 ::: callout-note
 ## Two recipe steps specific to decision trees
 
-- **`step_unknown()`** protects the model from new `Product Category` or `Day of the Week` values that may appear after deployment. Without this step, the model could fail when asked to predict an observation containing a category it did not encounter during training.
+* **`step_unknown()`** helps prevent errors if the model sees a new `Product Category` or `Day of the Week` value after deployment that was not included in the training data.
 
-- **`one_hot = TRUE` in `step_dummy()`** creates all *k* dummy variables rather than using *k* − 1 and leaving one category as the reference level. Since decision trees are not affected by multicollinearity, the tree can split directly on a condition such as `Product_Category_Electronics == 1` instead of interpreting that category indirectly through the omitted reference level.
+* **`one_hot = TRUE` in `step_dummy()`** creates a separate dummy variable for every category instead of leaving one out as the reference group. Since decision trees do not have the same multicollinearity concerns as linear models, the tree can split directly on something like `Product_Category_Electronics == 1`.
+
 :::
 
 ## Cross-Validation Folds
@@ -440,9 +446,10 @@ tree_fit |> extract_fit_parsnip() |> vip(num_features = 12) +
 ```
 :::
 
-**Interpretation—does the ranking make sense?** `Discount Percentage` and `Marketing Spend (USD)` dominate all three variable-importance plots, which supports our group’s original hypothesis that discounting and marketing activity are major drivers of revenue. `Product Category` and `month` also appear as meaningful secondary predictors, suggesting that category and season influence how those primary levers perform. This fits the business context: discount depth and advertising spend are decisions management can directly control, while product category and season provide the conditions in which those decisions operate.
+**Does the ranking make sense?** Yes. `Discount Percentage` and `Marketing Spend (USD)` are the strongest variables across all three importance plots, which makes sense because those are the two main factors our group has focused on throughout the project. `Product Category` and `month` also matter, but more as background factors that can change how well a discount or marketing decision works.
 
-**Which model performs best, and is the result reasonable?** The ensemble models (Random Forest and Boosted Tree) outperform the single Regression Tree on cross-validated RMSE and R², which is expected because bagging and boosting reduce the high variance of an individual tree. Whether they also outperform the Lasso baseline depends on the strength of the nonlinear and interaction effects in the data. If XGBoost or Random Forest performs best, that would suggest the discount-by-category relationship contains meaningful structure that a linear model can only approximate, even when interaction terms are added manually.
+**Which model performs best, and does that make sense?** Random Forest and XGBoost perform better than the single Regression Tree on cross-validated RMSE and R². That is not surprising because ensemble models combine many trees, which usually makes their predictions more stable. If either one also beats the Lasso model, it would suggest there are real nonlinear patterns or interactions in the data that the linear model cannot capture as well.
+
 
 # Decision Tree Pruning {#sec-pruning}
 
@@ -519,7 +526,7 @@ best_cp <- cp_results |> slice_min(test_rmse, n = 1) |> pull(cp)
 cat("cost_complexity with lowest TEST RMSE:", best_cp, "\n")
 ```
 
-**At what `cp` does test performance peak, and what happens to training performance at that value?** As `cost_complexity` decreases toward `0.0001`, the tree grows deeper and the training RMSE continues to fall because the model is fitting the training data more closely. Test RMSE improves only to a certain point before flattening or worsening as the tree begins to overfit noise. The value identified above, `r best_cp`, produces the lowest test RMSE. At that same value, training RMSE has not reached its minimum, so a train-test gap still remains. However, this setting provides the best balance between fitting the training data and generalizing to new observations, which is the bias-variance tradeoff that cost-complexity pruning is designed to manage.
+**At what `cp` does test performance peak, and what happens to training performance at that value?** As `cost_complexity` gets smaller, the tree becomes more complex and training RMSE keeps dropping because it fits the training data more closely. Test RMSE improves at first, but eventually levels off or gets worse once the tree starts fitting noise. The best value is `r best_cp`, where test RMSE is lowest. Training RMSE is still lower at that point, so there is still a gap, but this setting gives the best balance between fitting the training data and performing well on new data.
 
 ## Leaf Nodes at the Optimal `cp`
 
@@ -564,13 +571,13 @@ final_tree_fit |>
 ::: callout-important
 ## Plain-English explanation
 
-Think of the 200-leaf tree as a manager who memorized every past transaction instead of learning the broader patterns behind them. It may perfectly describe what happened for a very specific case, such as Furniture with a 15% discount on a Tuesday in Store X during March with exactly \$62 in marketing spend, because it already saw that combination in the training data. That is why its training performance looks so strong.
+Think of the 200-leaf tree as a manager who memorized the training data instead of actually learning the main patterns. It looks extremely accurate because it creates very specific rules for combinations it has already seen, like Furniture with a 15% discount on a Tuesday in March with exactly $62 in marketing spend.
 
-The problem is that future transactions will not match those exact combinations. A 200-leaf tree divides the data into groups that are so small and specific that many of them capture random noise rather than stable business patterns. When new transactions arrive, the tree forces them into these narrow groups, making its predictions less reliable.
+The problem is that new transactions will not match those exact combinations. With that many leaves, the tree starts fitting random details and noise, so its predictions become less reliable when it sees new data.
 
-The 15-leaf tree is instead forced to focus on the few splits that matter most, such as discount depth, marketing spend, product category, or season. It may be slightly less accurate on the exact data it was trained on, but the patterns it learns are more likely to generalize. A rule such as “high discount and high marketing spend in Electronics tends to produce higher revenue” is more useful next quarter than a rule tied to one specific store and day.
+The 15-leaf tree is simpler and focuses on the splits that matter most, such as discount, marketing spend, category, and season. It may not fit the training data as perfectly, but the patterns it finds are much more likely to hold up in the future.
 
-In short, the strong training accuracy of the 200-leaf tree creates the illusion of learning when it is really memorization. The 15-leaf tree gives up some of that apparent accuracy in exchange for more reliable and reusable business insight.
+Basically, the 200-leaf tree is memorizing the data, while the 15-leaf tree is learning patterns the business can actually use.
 :::
 
 # Summary
@@ -588,7 +595,8 @@ model_comparison |>
   tab_header(title = "Final Ranking by 10-Fold CV RMSE (lower is better)")
 ```
 
-Across the four models compared in @sec-alt-methods, the ensemble methods—Random Forest and XGBoost—generally achieve lower cross-validated RMSE than both the pruned Regression Tree and the M08 Lasso baseline. However, the pruned single tree in @sec-pruning remains the easiest model to interpret and communicate directly to store managers through clear discount and marketing rules. This reflects the main lesson of the module: **a single tree is transparent but high-variance, while ensemble methods give up some interpretability in exchange for more accurate and stable predictions.**
+When I compared the four models in @sec-alt-methods, Random Forest and XGBoost generally had lower cross-validated RMSE than the pruned Regression Tree and the M08 Lasso model. Even so, the pruned tree in @sec-pruning is still the easiest to explain to store managers because it turns the results into clear discount and marketing rules. This supports the main lesson from the module: **a single tree is easier to understand but more likely to vary, while ensemble models are usually more accurate and stable but harder to interpret.**
+
 
 # Appendix {#sec-appendix}
 
