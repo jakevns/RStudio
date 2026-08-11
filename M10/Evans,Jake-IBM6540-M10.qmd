@@ -1,0 +1,573 @@
+---
+title: "Reflection on Ensembles, Model Comparisons, and Interpretations with Group Project Data"
+subtitle: "Analytics Objective: Predicting High-Revenue Transactions from Discount, Marketing, and Seasonal Signals"
+author: "Jake Evans"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 4
+    toc-expand: 1
+    toc-location: right-body
+    toc-title: "Contents"
+    number-sections: true
+    code-fold: true
+    code-tools: true
+    theme: cosmo
+    highlight-style: github
+    df-print: paged
+    embed-resources: true
+engine: knitr
+execute:
+  warning: false
+  message: false
+  freeze: true  # Turn back on after the notebook renders cleanly
+---
+
+# **Setup** {.unnumbered}
+
+```{r setup}
+#| message: false
+library(tidymodels)
+library(tidyverse)
+library(rpart.plot)   # visualize the decision tree
+library(vip)           # variable importance plots
+library(patchwork)
+library(gt)
+library(DALEX)         # PDP + SHAP explainer
+library(DALEXtra)      # explain_tidymodels() bridge
+library(shapviz)        # SHAP plotting
+tidymodels_prefer()
+
+set.seed(6540)
+```
+
+::: {.callout-note title="Package installation notes"}
+-   `vip` was pulled from CRAN at one point — if `install.packages("vip")` fails, install the last archived version from source:
+
+    ``` r
+    install.packages(
+      "https://cran.r-project.org/src/contrib/Archive/vip/vip_0.4.1.tar.gz",
+      repos = NULL, type = "source"
+    )
+    ```
+
+-   `DALEX`, `DALEXtra`, and `shapviz` are on CRAN and install normally.
+-   The engines used below (`glmnet`, `rpart`, `ranger`, `xgboost`) all install automatically with `tidymodels`.
+:::
+
+------------------------------------------------------------------------
+
+# **Task 1 — Analytics Objective (AO)**
+
+> *State your AO (Analytics Objectives) for your project. If your AO didn't involve machine learning, please revise it so the objective is appropriately stated for a machine learning task. What are the variables to be included and their roles (outcome vs. features)? Name of the broader category of machine learning method (regression vs. classification).*
+
+## Business Context
+
+Our group's research question centered on the effect of discounts on retail sales, using the Kaggle *"Retail Sales Data with Seasonal Trends and Marketing"* dataset (30,000 transaction-level rows across 42 products, 4 categories, and 243 store locations, spanning January 2022 – January 2024). Restated as a supervised machine learning task:
+
+> **AO:** Predict whether a given sales transaction will be a **high-revenue transaction relative to its product category** — using only signals a marketer or merchandiser controls or observes *before* the sale happens (discount depth, marketing spend, timing, and location) — so the client can decide when and where to deploy discounts and marketing budget for maximum revenue lift.
+
+I deliberately excluded `Units Sold` from the feature set even though it is present in the raw data. Since `Sales Revenue = Units Sold × Unit Price`, using units sold to predict revenue would leak the outcome and produce an artificially perfect model that offers the client no actionable insight — it would just be re-stating the multiplication.
+
+## Outcome Variable
+
+| Variable | Type | Role |
+|----|----|----|
+| `high_revenue` | Binary factor (`yes` / `no`) | **Outcome** — `yes` if the transaction's `Sales Revenue (USD)` is above the median revenue for its own `Product Category`; `no` otherwise |
+
+A category-relative median split (rather than a single global median) avoids simply re-learning "Electronics costs more than Groceries" — it forces the model to find *within-category* drivers of a high-value sale, which is the actionable question for the client.
+
+## Feature Variables
+
+| Variable | Role | Type |
+|----|----|----|
+| `discount_pct` | Predictor | Numeric (0, 5, 10, 15, 20) |
+| `marketing_spend` | Predictor | Numeric (USD) |
+| `product_category` | Predictor | Nominal (4 levels) |
+| `store_location` | Predictor | Nominal (243 raw levels, collapsed via `step_other()`) |
+| `day_of_week` | Predictor | Nominal (7 levels) |
+| `is_weekend` | Predictor | Binary (derived from day of week) |
+| `month` | Predictor | Nominal (12 levels, captures seasonality) |
+| `quarter` | Predictor | Nominal (4 levels) |
+| `holiday_effect` | Predictor | Binary |
+| `store_id`, `product_id` | ID (unused) | `store_id` is constant across the whole file; `product_id` is an identifier, not a driver |
+| `units_sold`, `sales_revenue` | Excluded / outcome-original | Excluded to avoid leakage (see above) |
+
+## Machine Learning Category
+
+This is a **binary classification** task (`purchased`-style `yes` / `no` outcome), which lets me follow the exact CV `roc_auc` comparison workflow from the Trees & Ensembles codebook, run in parallel across four model families: regularized logistic regression, a tuned decision tree, a random forest, and XGBoost.
+
+------------------------------------------------------------------------
+
+# **Task 2 — Bagging and Boosting Background**
+
+> *Refer to Bagging and Boosting Methods explained here: Trees and Ensembles Part 2.*
+
+Before building the models below I went through [Trees and Ensembles — Part 2](https://jaejungca.github.io/trees-ensembles/m06_trees_ensembles.html#part-2-ensembles) (random forests via bagging + feature randomness, and boosting via sequential residual correction with XGBoost's second-order Taylor expansion). The two ideas I'm carrying into this reflection:
+
+-   **Bagging (Random Forest)** reduces *variance* by averaging many decorrelated trees grown on bootstrap samples with a random subset of features considered at each split. It should help most when a single tree is unstable across resamples.
+-   **Boosting (XGBoost)** reduces *bias* by sequentially fitting shallow trees to the residuals of the current ensemble, using gradient + Hessian information to find the optimal leaf weight at every split, with `learn_rate` controlling how aggressively each new tree corrects the last one.
+
+------------------------------------------------------------------------
+
+# **Task 3 — Machine Learning Process**
+
+## 3.1 Data Import & Feature Engineering
+
+```{r import-data}
+retail_raw <- read_csv("Retail_sales.csv", show_col_types = FALSE)
+
+glimpse(retail_raw)
+```
+
+```{r feature-engineering}
+retail_data <- retail_raw |>
+  rename(
+    store_id        = `Store ID`,
+    product_id      = `Product ID`,
+    date            = Date,
+    units_sold      = `Units Sold`,
+    sales_revenue   = `Sales Revenue (USD)`,
+    discount_pct    = `Discount Percentage`,
+    marketing_spend = `Marketing Spend (USD)`,
+    store_location  = `Store Location`,
+    product_category = `Product Category`,
+    day_of_week     = `Day of the Week`,
+    holiday_effect  = `Holiday Effect`
+  ) |>
+  mutate(
+    date            = as_date(date),
+    month           = factor(month(date, label = TRUE), ordered = FALSE),
+    quarter         = factor(paste0("Q", quarter(date))),
+    is_weekend      = if_else(day_of_week %in% c("Saturday", "Sunday"), "yes", "no"),
+    holiday_effect  = if_else(holiday_effect, "yes", "no"),
+    product_id      = as.character(product_id)
+  ) |>
+  # category-relative median split — the outcome variable
+  group_by(product_category) |>
+  mutate(category_median_revenue = median(sales_revenue)) |>
+  ungroup() |>
+  mutate(
+    high_revenue = factor(
+      if_else(sales_revenue > category_median_revenue, "yes", "no"),
+      levels = c("yes", "no")
+    )
+  ) |>
+  select(
+    store_id, product_id, date, product_category, store_location,
+    day_of_week, is_weekend, month, quarter, holiday_effect,
+    discount_pct, marketing_spend,
+    units_sold, sales_revenue,      # kept for reference — never used as predictors
+    high_revenue
+  )
+
+retail_data |>
+  count(high_revenue) |>
+  mutate(pct = round(n / sum(n), 3))
+```
+
+The category-relative split lands almost exactly at a 50/50 balance (49.7% / 50.3%), so I don't need to worry about class imbalance downstream.
+
+::: {.callout-note title="Why store_id and units_sold / sales_revenue aren't predictors"}
+-   `store_id` is a constant across the entire file (one value), so it carries zero information and would be caught by `step_zv()` anyway.
+-   `units_sold` and `sales_revenue` are dropped from the predictor set for the leakage reason explained in Task 1, but I kept them in the data frame for later sanity checks and business interpretation.
+:::
+
+## 3.2 Train/Test Split
+
+```{r split}
+set.seed(617)
+retail_split <- initial_split(retail_data, prop = 0.80, strata = high_revenue)
+retail_train <- training(retail_split)
+retail_test  <- testing(retail_split)
+
+cat("Training rows:", nrow(retail_train), "\n")
+cat("Test rows    :", nrow(retail_test), "\n")
+cat("High-revenue rate (train):", round(mean(retail_train$high_revenue == "yes"), 3), "\n")
+cat("High-revenue rate (test) :", round(mean(retail_test$high_revenue == "yes"), 3), "\n")
+```
+
+## 3.3 Recipes
+
+Following the codebook's guidance, linear models (Lasso logistic regression) and tree-based models need different preprocessing: linear models need normalization and reference-level dummy coding; trees are scale-invariant and interpret best with `one_hot = TRUE`. `store_location` has 243 raw levels, so every recipe below collapses it with `step_other()` before dummy-coding, keeping only locations that represent at least 1% of the training data and lumping the rest into `"other"`.
+
+### 3.3.1 Recipe for Regularized (Lasso) Logistic Regression
+
+```{r lasso-recipe}
+lasso_rec <- recipe(
+  high_revenue ~ product_category + store_location + day_of_week + is_weekend +
+    month + quarter + holiday_effect + discount_pct + marketing_spend,
+  data = retail_train
+) |>
+  step_other(store_location, threshold = 0.01, other = "other") |>
+  step_novel(all_nominal_predictors()) |>
+  step_unknown(all_nominal_predictors()) |>
+  step_log(marketing_spend, offset = 1) |>
+  step_normalize(all_numeric_predictors()) |>
+  step_dummy(all_nominal_predictors()) |>
+  step_zv(all_predictors())
+
+lasso_rec
+```
+
+### 3.3.2 Recipe for Decision Tree & Random Forest
+
+```{r tree-recipe}
+tree_rec <- recipe(
+  high_revenue ~ product_category + store_location + day_of_week + is_weekend +
+    month + quarter + holiday_effect + discount_pct + marketing_spend,
+  data = retail_train
+) |>
+  step_other(store_location, threshold = 0.01, other = "other") |>
+  step_novel(all_nominal_predictors()) |>
+  step_unknown(all_nominal_predictors()) |>
+  step_zv(all_predictors())
+
+tree_rec
+```
+
+No `step_normalize()` and no `step_log()` on predictors here — trees split on rank order, not magnitude, so those steps would add nothing and only make the split values harder to read in dollars/percentages.
+
+### 3.3.3 Recipe for XGBoost
+
+```{r xgb-recipe}
+xgb_rec <- recipe(
+  high_revenue ~ product_category + store_location + day_of_week + is_weekend +
+    month + quarter + holiday_effect + discount_pct + marketing_spend,
+  data = retail_train
+) |>
+  step_other(store_location, threshold = 0.01, other = "other") |>
+  step_novel(all_nominal_predictors()) |>
+  step_unknown(all_nominal_predictors()) |>
+  step_dummy(all_nominal_predictors(), one_hot = TRUE) |>
+  step_zv(all_predictors())
+
+xgb_rec
+```
+
+## 3.4 10-Fold Cross-Validation Folds
+
+```{r cv-folds}
+set.seed(2025)
+retail_folds <- vfold_cv(retail_train, v = 10, strata = high_revenue)
+retail_folds
+```
+
+## 3.5 Model 1 — Regularized (Lasso) Logistic Regression
+
+```{r lasso-model}
+lasso_spec <- logistic_reg(penalty = 0.01, mixture = 1) |>
+  set_engine("glmnet") |>
+  set_mode("classification")
+
+lasso_wf <- workflow() |>
+  add_recipe(lasso_rec) |>
+  add_model(lasso_spec)
+
+set.seed(2025)
+lasso_res <- fit_resamples(
+  lasso_wf,
+  resamples = retail_folds,
+  metrics   = metric_set(roc_auc, accuracy),
+  control   = control_resamples(save_pred = TRUE)
+)
+
+lasso_metrics <- collect_metrics(lasso_res) |>
+  mutate(model = "Lasso Logistic Regression")
+
+lasso_metrics
+```
+
+## 3.6 Model 2 — Decision Tree (Tuned)
+
+```{r tree-tune}
+tune_tree_spec <- decision_tree(
+  cost_complexity = tune(),
+  tree_depth      = 8,
+  min_n           = 25
+) |>
+  set_engine("rpart") |>
+  set_mode("classification")
+
+tune_tree_wf <- workflow() |>
+  add_recipe(tree_rec) |>
+  add_model(tune_tree_spec)
+
+cp_grid <- grid_regular(
+  cost_complexity(range = c(-4, -1)),
+  levels = 20
+)
+
+set.seed(2025)
+tree_tune_res <- tune_grid(
+  tune_tree_wf,
+  resamples = retail_folds,
+  grid      = cp_grid,
+  metrics   = metric_set(roc_auc, accuracy),
+  control   = control_grid(verbose = FALSE, allow_par = TRUE)
+)
+
+autoplot(tree_tune_res) +
+  labs(
+    title = "10-Fold CV Tuning Curve — Decision Tree",
+    x = "Cost-Complexity Parameter (Alpha / Cp)"
+  )
+```
+
+```{r tree-finalize}
+best_cp_1se <- select_by_one_std_err(tree_tune_res, metric = "roc_auc", desc(cost_complexity))
+cat("Chosen Cost-Complexity (Cp):", best_cp_1se$cost_complexity, "\n")
+
+final_tree_wf <- finalize_workflow(tune_tree_wf, best_cp_1se)
+
+# Re-run fit_resamples with the FIXED, tuned hyperparameter so the CV comparison
+# in Section 3.9 is apples-to-apples with the Lasso model above
+set.seed(2025)
+tree_res <- fit_resamples(
+  final_tree_wf,
+  resamples = retail_folds,
+  metrics   = metric_set(roc_auc, accuracy),
+  control   = control_resamples(save_pred = TRUE)
+)
+
+tree_metrics <- collect_metrics(tree_res) |>
+  mutate(model = "Decision Tree (Tuned)")
+
+tree_metrics
+```
+
+```{r tree-cleanup}
+rm(tree_tune_res, cp_grid)
+gc()
+```
+
+## 3.7 Model 3 — Random Forest
+
+```{r rf-tune}
+rf_spec <- rand_forest(
+  mtry  = tune(),
+  min_n = tune(),
+  trees = 500
+) |>
+  set_engine("ranger", importance = "permutation") |>
+  set_mode("classification")
+
+rf_wf <- workflow() |>
+  add_recipe(tree_rec) |>
+  add_model(rf_spec)
+
+rf_grid <- grid_regular(
+  mtry(range = c(2, 8)),
+  min_n(range = c(5, 30)),
+  levels = 3
+)
+
+set.seed(2025)
+rf_tune_res <- tune_grid(
+  rf_wf,
+  resamples = retail_folds,
+  grid      = rf_grid,
+  metrics   = metric_set(roc_auc, accuracy),
+  control   = control_grid(verbose = FALSE, allow_par = TRUE)
+)
+
+autoplot(rf_tune_res) +
+  labs(title = "10-Fold CV Tuning Curve — Random Forest")
+```
+
+```{r rf-best}
+best_rf <- select_best(rf_tune_res, metric = "roc_auc")
+best_rf
+
+rf_metrics <- collect_metrics(rf_tune_res) |>
+  filter(.metric %in% c("roc_auc", "accuracy")) |>
+  inner_join(best_rf, by = c("mtry", "min_n")) |>
+  mutate(model = "Random Forest")
+
+rf_metrics
+```
+
+```{r rf-cleanup}
+rm(rf_grid)
+gc()
+```
+
+## 3.8 Model 4 — XGBoost
+
+```{r xgb-tune}
+xgb_spec <- boost_tree(
+  trees      = 500,
+  tree_depth = tune(),
+  learn_rate = tune(),
+  min_n      = tune()
+) |>
+  set_engine("xgboost") |>
+  set_mode("classification")
+
+xgb_wf <- workflow() |>
+  add_recipe(xgb_rec) |>
+  add_model(xgb_spec)
+
+xgb_grid <- grid_regular(
+  tree_depth(range = c(2, 6)),
+  learn_rate(range = c(-3, -1)),
+  min_n(range = c(5, 30)),
+  levels = 3
+)
+
+set.seed(2025)
+xgb_tune_res <- tune_grid(
+  xgb_wf,
+  resamples = retail_folds,
+  grid      = xgb_grid,
+  metrics   = metric_set(roc_auc, accuracy),
+  control   = control_grid(verbose = FALSE, allow_par = TRUE)
+)
+
+autoplot(xgb_tune_res) +
+  labs(title = "10-Fold CV Tuning Curve — XGBoost")
+```
+
+```{r xgb-best}
+best_xgb <- select_best(xgb_tune_res, metric = "roc_auc")
+best_xgb
+
+xgb_metrics <- collect_metrics(xgb_tune_res) |>
+  filter(.metric %in% c("roc_auc", "accuracy")) |>
+  inner_join(best_xgb, by = c("tree_depth", "learn_rate", "min_n")) |>
+  mutate(model = "XGBoost")
+
+xgb_metrics
+```
+
+```{r xgb-cleanup}
+rm(xgb_grid)
+gc()
+```
+
+## 3.9 Model Comparison — 10-Fold CV ROC AUC
+
+```{r model-comparison}
+all_cv_metrics <- bind_rows(lasso_metrics, tree_metrics, rf_metrics, xgb_metrics) |>
+  select(model, .metric, mean, std_err) |>
+  filter(.metric == "roc_auc") |>
+  arrange(desc(mean))
+
+all_cv_metrics |>
+  gt() |>
+  fmt_number(columns = c(mean, std_err), decimals = 4) |>
+  cols_label(model = "Model", .metric = "Metric", mean = "CV ROC AUC", std_err = "Std. Error") |>
+  tab_header(title = "10-Fold Cross-Validated ROC AUC — All Four Models")
+```
+
+**Which model wins, and by how much?** *(Fill in once rendered — expect XGBoost or Random Forest at the top given the strong seasonal/holiday interactions found in the data below.)* Compare the top model's `mean` to the runner-up: if `top_mean - runner_up_mean > runner_up_std_err`, the gap is larger than one standard error and I'd call the difference meaningful rather than noise.
+
+**Did I expect tree-based methods to win?** Yes, and here's why, grounded in the raw relationships I checked before modeling:
+
+-   Raw correlation of `discount_pct` with revenue is slightly *negative* (≈ -0.066) and `marketing_spend` is essentially zero (≈ -0.003) — a purely linear model has very little to work with from these two variables alone.
+-   `month` shows a **seasonal, non-monotonic-within-quarter pattern**: average revenue climbs from ~\$2,400 in January to ~\$3,050 in December, but the climb isn't a straight line — it plateaus mid-year before accelerating again in Q4. A linear/dummy-coded month effect in Lasso can capture *some* of this (since month is already categorical, not continuous), but it can't capture **interactions** — e.g., whether the holiday effect or a given discount tier behaves differently in Q4 versus Q1.
+-   `holiday_effect` more than doubles average revenue (\$2,732 → \$5,891) — a large, likely-interacting effect that trees are well-suited to combine with month and category through splits.
+
+**What does this tell me about the data, and what would I recommend for deployment?** If the tree-based models win by more than one standard error, it confirms the revenue drivers here are dominated by *seasonal and category interactions* rather than a simple additive discount/marketing relationship — which matches our group's original finding that straightforward discounting doesn't reliably lift revenue in this dataset. For deployment I'd recommend the model that wins CV `roc_auc` **unless** the gap over Lasso is inside one standard error, in which case I'd deploy the Lasso model instead: it's dramatically more parsimonious, requires no `xgboost`/`ranger` runtime dependency, and its coefficients are directly explainable to a merchandising team without needing SHAP.
+
+## 3.10 Final Model Fit & Test-Set Performance
+
+```{r final-fit}
+# Swap in whichever workflow/best-params combination won Section 3.9
+final_xgb_wf <- finalize_workflow(xgb_wf, best_xgb)
+
+final_xgb_fit <- fit(final_xgb_wf, data = retail_train)
+
+final_xgb_preds <- augment(final_xgb_fit, new_data = retail_test)
+
+final_xgb_preds |>
+  conf_mat(truth = high_revenue, estimate = .pred_class) |>
+  autoplot(type = "heatmap")
+
+final_xgb_preds |>
+  metrics(truth = high_revenue, estimate = .pred_class, .pred_yes) |>
+  bind_rows(
+    final_xgb_preds |> roc_auc(truth = high_revenue, .pred_yes)
+  )
+```
+
+::: {.callout-important title="Swap this block to match your Section 3.9 winner"}
+This block finalizes and evaluates **XGBoost** as written. If the Random Forest or Decision Tree wins the comparison instead, swap `xgb_wf` / `best_xgb` for `rf_wf` / `best_rf` (or `final_tree_wf`, which is already finalized) and re-run from here down, including the interpretation section below.
+:::
+
+## 3.11 Interpreting the Best Model
+
+### 3.11.1 Variable Importance
+
+```{r vip}
+final_xgb_fit |>
+  extract_fit_parsnip() |>
+  vip(num_features = 10) +
+  labs(title = "XGBoost Variable Importance (Gain)")
+```
+
+### 3.11.2 Partial Dependence Plots (PDP)
+
+```{r pdp-setup}
+explainer_xgb <- explain_tidymodels(
+  final_xgb_fit,
+  data  = retail_train |> select(-high_revenue),
+  y     = as.numeric(retail_train$high_revenue == "yes"),
+  label = "XGBoost",
+  verbose = FALSE
+)
+```
+
+```{r pdp-plots}
+pdp_discount <- model_profile(explainer_xgb, variables = "discount_pct", type = "partial")
+pdp_marketing <- model_profile(explainer_xgb, variables = "marketing_spend", type = "partial")
+
+plot(pdp_discount) + labs(title = "PDP — Discount Percentage")
+plot(pdp_marketing) + labs(title = "PDP — Marketing Spend")
+```
+
+### 3.11.3 SHAP
+
+```{r shap-setup}
+xgb_engine_fit <- extract_fit_engine(final_xgb_fit)
+
+x_train_baked <- xgb_rec |>
+  prep() |>
+  bake(new_data = NULL) |>
+  select(-high_revenue) |>
+  as.matrix()
+
+shap_values <- shapviz(xgb_engine_fit, X_pred = x_train_baked, X = x_train_baked)
+```
+
+```{r shap-global}
+sv_importance(shap_values, kind = "beeswarm") +
+  labs(title = "Global SHAP — Beeswarm")
+
+sv_importance(shap_values, kind = "bar") +
+  labs(title = "Global SHAP — Feature Importance")
+```
+
+```{r shap-local}
+sv_waterfall(shap_values, row_id = 10) +
+  labs(title = "Local SHAP — Single Transaction (Row 10)")
+```
+
+## 3.12 Recommendations for the Client
+
+*(To be finalized once the charts above are rendered with real numbers — draft framing below.)*
+
+-   **Lead with seasonality, not discounting.** If month/quarter and the holiday flag dominate variable importance, the client's revenue calendar — not blanket discount campaigns — should drive the marketing budget calendar. Concentrate spend in the weeks around identified holiday windows and the Q4 ramp rather than spreading it evenly.
+-   **Re-examine the discounting strategy.** The raw data shows revenue *falling* as discount depth increases, and the PDP should confirm whether that holds after controlling for category, timing, and location. If so, discounting in this dataset is compressing margin without reliably pulling in enough incremental volume to compensate — worth a controlled discount-depth test before scaling any promotion.
+-   **Marketing spend may need a floor, not a slope.** A near-zero raw correlation combined with a flat/step-shaped PDP would suggest spend matters less on a dollar-for-dollar basis and more as a binary "are we advertising at all in this category/season" decision — useful for budget-allocation conversations.
+-   **Category-specific playbooks.** Since the outcome is defined relative to each category's own median, any SHAP interaction between `product_category` and `month`/`holiday_effect` points to categories that need their own seasonal calendar rather than one company-wide promotional schedule.
+
+------------------------------------------------------------------------
+
+# **Appendix**
+
+-   **GitHub repository:** [jakevns/RStudio](https://github.com/jakevns/RStudio)
+-   **Published report (GitHub Pages):** [jakevns.github.io/RStudio/M10/Evans%2CJake-IBM6540-M10.html](https://jakevns.github.io/RStudio/M10/Evans%2CJake-IBM6540-M10.html)
+-   **Data source:** Kaggle, *"Retail Sales Data with Seasonal Trends and Marketing"* (30,000 rows)
+-   **Codebook referenced:** [Trees and Ensembles — Part 1 & 2](https://jaejungca.github.io/trees-ensembles/m06_trees_ensembles.html)
