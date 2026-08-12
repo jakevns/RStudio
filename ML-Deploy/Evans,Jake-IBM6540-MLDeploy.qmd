@@ -124,17 +124,15 @@ The Shiny app (`app.R`) loads this saved workflow with `readRDS()` and calls `pr
 
 ## Experimenting with Predictions
 
-<!-- Fill this in after you deploy and play with the app. Example structure below — replace with your actual observed numbers. -->
-
 I tested the deployed model with several promotion scenarios to see how discount and marketing spend affect predicted revenue, holding other factors constant:
 
 | Scenario | Discount | Marketing Spend | Category | Predicted Revenue |
 |---|---|---|---|---|
-| Baseline | 0% | $0 | Electronics, Monday, no holiday, Jan | $[fill in] |
-| Discount only | 15% | $0 | Electronics, Monday, no holiday, Jan | $[fill in] |
-| Marketing only | 0% | $150 | Electronics, Monday, no holiday, Jan | $[fill in] |
-| Both levers | 15% | $150 | Electronics, Monday, no holiday, Jan | $[fill in] |
-| Holiday effect | 15% | $150 | Electronics, Monday, holiday=Yes, Jan | $[fill in] |
+| Baseline | 0% | $0 | Electronics, Monday, no holiday, Jan | $3,309.25 |
+| Discount only | 15% | $0 | Electronics, Monday, no holiday, Jan | $2,905.77 |
+| Marketing only | 0% | $150 | Electronics, Monday, no holiday, Jan | $3,290.39 |
+| Both levers | 15% | $150 | Electronics, Monday, no holiday, Jan | $2,886.91 |
+| Holiday effect | 15% | $150 | Electronics, Monday, holiday=Yes, Jan | $2,886.91 |
 
 **Observations:** As I tested different scenarios in the Shiny app, discount percentage and marketing spend produced the most noticeable changes in predicted revenue, while changing holiday status had a smaller effect. This was consistent with the tuned Lasso model from M08, where discount and marketing spend were the strongest continuous predictors and many of the categorical variables contributed smaller adjustments. Seeing those relationships update in real time made the coefficients easier to understand because I could see how changing one promotion decision affected the predicted outcome.
 
