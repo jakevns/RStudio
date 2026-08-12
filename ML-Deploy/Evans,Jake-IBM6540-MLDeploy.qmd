@@ -1,0 +1,169 @@
+---
+title: "W10-Machine Learning Deployment"
+subtitle: "Predicting Retail Sales Revenue from Discounts, Marketing, and Seasonality"
+author: "Jake Evans"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-expand: true
+    embed-resources: true
+    theme: cosmo
+    code-fold: true
+execute:
+  echo: true
+  warning: false
+  message: false
+---
+
+# Analytics Objective & Model
+
+## Project Description
+
+For this assignment, I deployed the **tuned Lasso regression model** from my M08 individual reflection and applied it to Seis Leches’ (Group 1) IBM 6540 group project, *“Analyzing the Effect of Discounts on Retail Sales Volume and Revenue Using Seasonal Retail Data.”* The Analytics Objective is to **predict a retail transaction’s Sales Revenue (USD)** using discount percentage, marketing spend, product category, day of the week, holiday status, and month. The goal is to give a store planner a way to estimate how a proposed promotion or marketing budget could affect revenue before the promotion launches, rather than only evaluating the results afterward. I deployed the model as an interactive **Shiny app** on shinyapps.io, where users can adjust promotion conditions with sliders and dropdown menus and immediately see the predicted revenue for that scenario.
+
+
+## Data Description
+
+The data comes from the Kaggle **Retail Sales Data with Seasonal Trends and Marketing** dataset, which includes 30,000 transactions from 2022 through 2024 and is the same dataset used by Group 1 for the full project.
+
+| Variable              | Role                          | Type                                                      |
+| --------------------- | ----------------------------- | --------------------------------------------------------- |
+| Sales Revenue (USD)   | Outcome                       | Continuous                                                |
+| Discount Percentage   | Predictor                     | Numeric (0–20%)                                           |
+| Marketing Spend (USD) | Predictor                     | Numeric ($0–199)                                          |
+| Product Category      | Predictor                     | Categorical (Clothing, Electronics, Furniture, Groceries) |
+| Day of the Week       | Predictor                     | Categorical (Monday–Sunday)                               |
+| Holiday Effect        | Predictor                     | Categorical (True/False)                                  |
+| Month                 | Predictor (derived from Date) | Categorical (Jan–Dec)                                     |
+
+`Units Sold`, `Store ID`, `Product ID`, and `Store Location` were excluded from the model. The full reasoning is explained in M08, with the main concerns being data leakage, high-cardinality variables, and zero-variance predictors.
+
+
+## R Code
+
+The model was built using `tidymodels` with a consistent preprocessing recipe that included median imputation, normalization, dummy coding, and zero-variance filtering. The Lasso penalty was then selected using 10-fold cross-validation. The code below reproduces the final tuned model from M08 and saves it so it can be used directly in the Shiny app.
+
+
+```r
+library(tidymodels)
+library(tidyverse)
+library(glmnet)
+library(janitor)
+library(lubridate)
+
+tidymodels_prefer()
+set.seed(2025)
+
+sales_raw <- read_csv("data/Retail_sales.csv", show_col_types = FALSE) |>
+  clean_names()
+
+sales_data <- sales_raw |>
+  mutate(
+    date = ymd(date),
+    month = factor(month(date, label = TRUE), ordered = FALSE),
+    product_category = factor(product_category),
+    day_of_the_week = factor(
+      day_of_the_week,
+      levels = c("Monday","Tuesday","Wednesday","Thursday",
+                 "Friday","Saturday","Sunday")
+    ),
+    holiday_effect = factor(holiday_effect, levels = c("False","True"))
+  )
+
+sales_model_data <- sales_data |>
+  select(sales_revenue_usd, discount_percentage, marketing_spend_usd,
+         product_category, day_of_the_week, holiday_effect, month)
+
+set.seed(617)
+sales_split <- initial_split(sales_model_data, prop = 0.80, strata = sales_revenue_usd)
+sales_train <- training(sales_split)
+sales_test  <- testing(sales_split)
+
+sales_rec <- recipe(sales_revenue_usd ~ ., data = sales_train) |>
+  step_impute_median(all_numeric_predictors()) |>
+  step_normalize(all_numeric_predictors()) |>
+  step_dummy(all_nominal_predictors()) |>
+  step_zv(all_predictors())
+
+lasso_tune_spec <- linear_reg(penalty = tune(), mixture = 1) |>
+  set_engine("glmnet")
+
+lasso_tune_wf <- workflow() |>
+  add_recipe(sales_rec) |>
+  add_model(lasso_tune_spec)
+
+set.seed(2025)
+sales_folds <- vfold_cv(sales_train, v = 10, strata = sales_revenue_usd)
+penalty_grid <- grid_regular(penalty(range = c(-4, 1)), levels = 30)
+
+set.seed(2025)
+lasso_tune_results <- tune_grid(
+  lasso_tune_wf, resamples = sales_folds,
+  grid = penalty_grid, metrics = metric_set(rmse, rsq, mae)
+)
+
+best_penalty <- select_best(lasso_tune_results, metric = "rmse")
+
+final_lasso_wf  <- finalize_workflow(lasso_tune_wf, best_penalty)
+final_lasso_fit <- fit(final_lasso_wf, data = sales_train)
+
+saveRDS(final_lasso_fit, "shiny_deploy/lasso_model.rds")
+```
+
+The Shiny app (`app.R`) loads this saved workflow with `readRDS()` and calls `predict()` on the user's selected inputs to return a live revenue estimate.
+
+---
+
+# Deployed Model & Experimentation
+
+## Deployed Model on the Web
+
+🔗 [https://o7gye8-jake-evans.shinyapps.io/shiny_deploy/](https://o7gye8-jake-evans.shinyapps.io/shiny_deploy/)
+
+## Experimenting with Predictions
+
+<!-- Fill this in after you deploy and play with the app. Example structure below — replace with your actual observed numbers. -->
+
+I tested the deployed model with several promotion scenarios to see how discount and marketing spend affect predicted revenue, holding other factors constant:
+
+| Scenario | Discount | Marketing Spend | Category | Predicted Revenue |
+|---|---|---|---|---|
+| Baseline | 0% | $0 | Electronics, Monday, no holiday, Jan | $[fill in] |
+| Discount only | 15% | $0 | Electronics, Monday, no holiday, Jan | $[fill in] |
+| Marketing only | 0% | $150 | Electronics, Monday, no holiday, Jan | $[fill in] |
+| Both levers | 15% | $150 | Electronics, Monday, no holiday, Jan | $[fill in] |
+| Holiday effect | 15% | $150 | Electronics, Monday, holiday=Yes, Jan | $[fill in] |
+
+**Observations:** As I tested different scenarios in the Shiny app, discount percentage and marketing spend produced the most noticeable changes in predicted revenue, while changing holiday status had a smaller effect. This was consistent with the tuned Lasso model from M08, where discount and marketing spend were the strongest continuous predictors and many of the categorical variables contributed smaller adjustments. Seeing those relationships update in real time made the coefficients easier to understand because I could see how changing one promotion decision affected the predicted outcome.
+
+**Connection to the group project’s question:** The deployed model makes the group’s original question about whether discounts drive revenue more complicated than a simple yes or no. Discounting clearly matters, but the model suggests that revenue is influenced by a combination of discount level, marketing spend, timing, and product category rather than discounts alone. This supports using discounts as one part of a broader promotional strategy instead of assuming that increasing the discount will automatically produce higher revenue.
+
+
+---
+
+# Appendix {.unnumbered}
+
+## Deployed Shiny App
+
+- Live app: [https://o7gye8-jake-evans.shinyapps.io/shiny_deploy/](https://o7gye8-jake-evans.shinyapps.io/shiny_deploy/)
+
+## Data Source
+
+- Kaggle dataset: [Retail Sales Data with Seasonal Trends and Marketing](https://www.kaggle.com/datasets/abdullah0a/retail-sales-data-with-seasonal-trends-and-marketing/versions/1)
+
+## Related Assignment
+
+- M08 (model development this deployment is based on): `M08/Evans,Jake-IBM6540-M08.qmd`
+- Rendered M08 HTML: <https://jakevns.github.io/RStudio/M08/Evans%2CJake-IBM6540-M08.html>
+
+## This Assignment (Individual Repo)
+
+- GitHub repo: <https://github.com/jakevns/RStudio>
+- File path in repo: `ML-Deploy/Evans,Jake-IBM6540-MLDeploy.qmd`
+- Rendered HTML (GitHub Pages): <https://jakevns.github.io/RStudio/ML-Deploy/Evans%2CJake-IBM6540-MLDeploy.html>
+
+## Group Project Repository (Data Source)
+
+- Group repo: <https://github.com/mjshawell/IBM-6540-Group-Project>
