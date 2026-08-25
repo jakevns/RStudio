@@ -1,0 +1,59 @@
+---
+title: "IC-GP - Final Group Member Contribution Evaluation"
+author: "Jake Evans"
+date: today
+format:
+  html:
+    df-print: paged
+    embed-resources: true
+    theme: cosmo
+execute:
+  freeze: true
+engine: knitr
+---
+
+## Group: Seis Leches (Group 1)
+
+This evaluation reflects my confidential, independent assessment of my own contribution and the contributions of each member of my group to the CPP Farm Store consulting project (GP1–GP7).
+
+---
+
+## Self-Evaluation: Jake Evans
+
+**Contribution Description:**
+I did the majority of the writing, editing, and review across the group's CPP Farm Store deliverables (GP1–GP7) alongside Mickyas, and contributed to the project sections and deliverables throughout the semester.
+
+**Rating:** 100%
+
+---
+
+## Member Evaluation: Mickyas Shawel — MVP
+
+**Contribution Description:**
+Mickyas managed the group's GitHub infrastructure and repository, owned the Shopify prototype setup, and did the majority of the writing, editing, and review across the group's CPP Farm Store deliverables (GP1–GP7) alongside me, including assembling and organizing everything into the final consulting report and presentation package delivered to the client. His work pulling everything together into a cohesive final product went above and beyond and elevated the quality of the group's final submission.
+
+**Rating:** MVP (above and beyond — significantly elevated the quality of the group project)
+
+---
+
+## Member Evaluation: Luis Berumen
+
+**Contribution Description:**
+Luis helped with the group's CPP Farm Store project deliverables as needed throughout the semester and did what was expected of him.
+
+**Rating:** 100%
+
+---
+
+## Member Evaluation: Tim Arana
+
+**Contribution Description:**
+Tim helped with the group's CPP Farm Store project deliverables as needed throughout the semester and did what was expected of him.
+
+**Rating:** 100%
+
+---
+
+## Overall Reflection
+
+Everyone on the team did what was expected and contributed to the CPP Farm Store project as needed. Mickyas stood out as the MVP for pulling everything together into a polished final deliverable for the client.

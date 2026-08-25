@@ -143,7 +143,7 @@ At the same time, I still have areas where i want continue to grow. I would like
 ## References and Job Posting Links
 
 | \# | Job Title | Company | Location | Source |
-|----|----|----|----|----|
+|---------------|---------------|---------------|---------------|---------------|
 | 1 | Marketing Coordinator | Crocodile Cloth | Columbus, OH | [Greenhouse](https://job-boards.greenhouse.io/crocodilecloth/jobs/4250995009) |
 | 2 | Media Coordinator | Quince | San Francisco, CA | [Greenhouse](https://job-boards.greenhouse.io/quince/jobs/5198526008) |
 | 3 | Associate Digital Marketing Manager | Mezzetta | Larkspur, CA | [Greenhouse](https://job-boards.greenhouse.io/mezzettacareers/jobs/5987547004) |
@@ -157,5 +157,5 @@ Job postings expire. Screenshots of all three postings were captured on June 28,
 ## Appendix {.appendix}
 
 - **GitHub Repository:** <https://github.com/jakevns/RStudio>
-- **GitHub Pages:** <https://jakevns.github.io/RStudio/>
+- **GitHub Pages:** [https://jakevns.github.io/RetailCareerEssay](https://jakevns.github.io/RStudio/CareerResearch/Evans_Jake-OACP-Career_Research.html){.uri}
 - **Artist Portfolio:** <https://www.jakebaileyartist.com>

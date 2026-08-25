@@ -1,0 +1,68 @@
+---
+title: "IC-GP - Final Group Member Contribution Evaluation"
+author: "Jake Evans"
+date: today
+format:
+  html:
+    df-print: paged
+    embed-resources: true
+    theme: cosmo
+execute:
+  freeze: true
+engine: knitr
+---
+
+## Group: Seis Leches (Group 1)
+
+This evaluation reflects my confidential, independent assessment of my own contribution and the contributions of each member of my group to the final machine learning group project (retail sales dataset, Research Objectives RO1–RO5).
+
+---
+
+## Self-Evaluation: Jake Evans
+
+**Contribution Description:**
+I led RO1 (Seasonality & Timing), sourced the group's Kaggle retail sales dataset, and built the seasonality/timing model section for the group's final presentation.
+
+**Rating:** 100%
+
+---
+
+## Member Evaluation: Mickyas Shawel — MVP
+
+**Contribution Description:**
+Mickyas led RO5 (Marketing Interaction), set up and managed the group's GitHub repository, and put together the group's final presentation, pulling everyone's individual RO sections into a cohesive final deck. His work organizing the repo and assembling the final presentation went above and beyond and elevated the quality of the group's final submission.
+
+**Rating:** MVP (above and beyond — significantly elevated the quality of the group project)
+
+---
+
+## Member Evaluation: Aldo Naranjo
+
+**Contribution Description:**
+Aldo led RO2 (Discounts & Volume), building out that model section for the group's final presentation, and did what was expected of him for the project.
+
+**Rating:** 100%
+
+---
+
+## Member Evaluation: Luis Berumen
+
+**Contribution Description:**
+Luis led RO3 (Discounts & Revenue), building out that model section for the group's final presentation, and did what was expected of him for the project.
+
+**Rating:** 100%
+
+---
+
+## Member Evaluation: Tim Arana
+
+**Contribution Description:**
+Tim led RO4 (Category Differences), building out that model section for the group's final presentation, and did what was expected of him for the project.
+
+**Rating:** 100%
+
+---
+
+## Overall Reflection
+
+Everyone on the team did what was expected and delivered their assigned Research Objective for the group's final presentation. Mickyas stood out as the MVP for managing the repo and pulling everyone's sections together into the final presentation.
